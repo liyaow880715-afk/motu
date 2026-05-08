@@ -125,7 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black/30">
                   <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">公司</p>
                   <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">
-                    零禾（上海）网络科技有限公司
+                    {companyName}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black/30">
