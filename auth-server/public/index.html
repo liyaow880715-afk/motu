@@ -175,13 +175,15 @@
       const pw = el('pw').value.trim();
       if (!pw) { showToast('请输入密码', 'error'); return; }
       el('loginBtn').disabled = true;
+      adminSecret = pw;
       const data = await api('/api/keys');
       el('loginBtn').disabled = false;
       if (data.success) {
-        adminSecret = pw;
         localStorage.setItem('motu_admin_secret', pw);
         renderDashboard();
       } else {
+        adminSecret = '';
+        localStorage.removeItem('motu_admin_secret');
         showToast(data.error?.message || '密码错误', 'error');
       }
     }
