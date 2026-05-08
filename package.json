@@ -1,6 +1,6 @@
 {
   "name": "motu",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "private": true,
   "description": "AI e-commerce detail page generation and editing workspace",
   "author": "零禾（上海）网络科技有限公司",
@@ -36,6 +36,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "docx": "^9.6.1",
+    "electron-log": "^5.4.3",
     "lucide-react": "^0.511.0",
     "nanoid": "^5.1.5",
     "next": "^14.2.35",
@@ -65,10 +66,12 @@
   "build": {
     "appId": "com.matrixinspire.motu",
     "productName": "摹图",
-    "asar": false,
+    "asar": true,
     "asarUnpack": [
-      ".next/standalone/node_modules/.prisma/**/*",
-      ".next/standalone/node_modules/@prisma/**/*"
+      "**/*.node",
+      "**/node_modules/.prisma/**/*",
+      "**/node_modules/@prisma/**/*",
+      "scripts/**/*.cjs"
     ],
     "directories": {
       "output": "dist-desktop",

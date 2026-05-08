@@ -241,7 +241,10 @@
           <div class="panel">
             <div class="panel-header">
               <span style="font-weight:500;font-size:14px">激活码列表</span>
-              <span id="listCount" style="font-size:12px;color:var(--muted)"></span>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span id="listCount" style="font-size:12px;color:var(--muted)"></span>
+                <button class="btn-sm btn-ghost" onclick="exportKeys()">导出全部</button>
+              </div>
             </div>
             <div class="panel-body" style="padding:0">
               <div id="listArea"></div>
@@ -272,6 +275,7 @@
         el('listArea').innerHTML = '<div class="empty">加载失败: ' + (data.error?.message || '未知错误') + '</div>';
         return;
       }
+      window.__currentKeys = data.data;
       const keys = data.data;
       el('listCount').textContent = `共 ${keys.length} 条`;
       if (keys.length === 0) {
@@ -370,6 +374,37 @@
         showToast('复制失败，请手动复制', 'error');
       }
       document.body.removeChild(ta);
+    }
+
+    function exportKeys() {
+      const keys = window.__currentKeys || [];
+      if (keys.length === 0) { showToast('没有可导出的激活码', 'error'); return; }
+      const header = '激活码,类型,状态,备注,创建时间,激活时间,过期时间,已使用次数\n';
+      const rows = keys.map(k => {
+        const status = k.expiresAt && new Date() > new Date(k.expiresAt) ? '已过期' :
+                       k.type === 'PER_USE' && k.usedCount >= 1 ? '已用完' :
+                       k.activatedAt ? '已激活' : '未使用';
+        return [
+          k.key,
+          k.type === 'PER_USE' ? '次卡' : k.type === 'DAILY' ? '日卡' : '月卡',
+          status,
+          k.label || '',
+          k.createdAt ? new Date(k.createdAt).toLocaleString('zh-CN') : '',
+          k.activatedAt ? new Date(k.activatedAt).toLocaleString('zh-CN') : '',
+          k.expiresAt ? new Date(k.expiresAt).toLocaleString('zh-CN') : '',
+          k.usedCount
+        ].join(',');
+      }).join('\n');
+      const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '激活码列表.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`已导出 ${keys.length} 个激活码`);
     }
 
     function logout() {

@@ -7,6 +7,11 @@ const path = require("path");
 const { spawn } = require("child_process");
 
 const { app, BrowserWindow, dialog, ipcMain } = require("electron");
+const log = require("electron-log");
+
+log.transports.file.level = "info";
+log.transports.console.level = "debug";
+log.info("Main process started");
 
 const { toSqliteFileUrl } = require("../scripts/runtime-paths.cjs");
 
@@ -542,6 +547,7 @@ async function startNextServer(runtime) {
   const port = await findAvailablePort(3000);
   const env = getRuntimeEnv(runtime, port);
 
+  log.info("Starting Next.js server on port", port);
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: getStandaloneRoot(),
     env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
@@ -554,7 +560,8 @@ async function startNextServer(runtime) {
 
   serverProcess.on("exit", (code) => {
     if (!isQuitting && code !== 0) {
-      dialog.showErrorBox("摹图 启动失败", serverErrors || `内置服务异常退出，退出码：${code}`);
+      log.error("App bootstrap failed:", serverErrors || `Exit code ${code}`);
+  dialog.showErrorBox("摹图 启动失败", serverErrors || `内置服务异常退出，退出码：${code}`);
       app.quit();
     }
   });
@@ -611,8 +618,10 @@ async function bootstrapDesktopApp() {
 async function handleActivation(serverUrl, key) {
   const config = readActivationConfig();
   const machineId = config?.machineId || crypto.randomUUID();
+  log.info("Activating key", key, "on", serverUrl, "machineId", machineId);
   const result = await verifyActivationOnServer(serverUrl, key, machineId);
   if (!result.success) {
+    log.error("Activation failed:", result.error);
     throw new Error(result.error?.message || "激活失败，请检查激活码和服务器地址");
   }
   writeActivationConfig({
@@ -690,7 +699,8 @@ app.on("activate", async () => {
 
 app.whenReady().then(() => {
   bootstrapWithActivation().catch((error) => {
-    dialog.showErrorBox("摹图 启动失败", error instanceof Error ? error.message : "未知错误");
+    log.error("App bootstrap error:", error);
+  dialog.showErrorBox("摹图 启动失败", error instanceof Error ? error.message : "未知错误");
     app.quit();
   });
 });
