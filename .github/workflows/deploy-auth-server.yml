@@ -26,7 +26,7 @@ jobs:
             cd /opt/auth-server
             git pull origin main || (rm -rf /opt/auth-server && cd /opt && git clone --depth 1 https://github.com/liyaow880715-afk/motu.git temp_clone && mv temp_clone/auth-server . && rm -rf temp_clone)
             npm install
-            npx prisma generate
-            npx prisma migrate deploy
+            npx prisma generate --schema=prisma/schema.prisma
+            npx prisma migrate deploy --schema=prisma/schema.prisma
             sudo systemctl restart motu-auth
             echo "Deployment completed"
