@@ -71,7 +71,8 @@
       "**/*.node",
       "**/node_modules/.prisma/**/*",
       "**/node_modules/@prisma/**/*",
-      "scripts/**/*.cjs"
+      "scripts/**/*.cjs",
+      ".next/standalone/**/*"
     ],
     "directories": {
       "output": "dist-desktop",

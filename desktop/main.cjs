@@ -526,6 +526,11 @@ function createMainWindow(url) {
 // ============================================================================
 
 function getStandaloneRoot() {
+  // asar unpacked path takes priority (Windows CreateProcess cannot use asar internals as cwd)
+  const unpacked = path.join(process.resourcesPath, "app.asar.unpacked", ".next", "standalone");
+  if (fs.existsSync(unpacked)) {
+    return unpacked;
+  }
   return path.resolve(__dirname, "..", ".next", "standalone");
 }
 
