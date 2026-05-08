@@ -65,6 +65,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   checkAuth: async () => {
+    // Desktop: read activation from Electron main process (bypass local login)
+    if (typeof window !== "undefined") {
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI?.getActivation) {
+        try {
+          const config = await electronAPI.getActivation();
+          if (config?.key && config?.keyInfo) {
+            saveStoredKey(config.key);
+            set({ key: config.key, keyInfo: config.keyInfo, isLoggedIn: true, isLoading: false });
+            return true;
+          }
+        } catch {
+          // fall through to localStorage check
+        }
+      }
+    }
+
     const storedKey = loadStoredKey();
     if (!storedKey) {
       set({ isLoading: false, isLoggedIn: false });

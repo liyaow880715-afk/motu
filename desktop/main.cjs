@@ -80,18 +80,21 @@ function buildActivateHtml() {
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
-  width: 100%; height: 100%;
+  width: 100%; height: 100%; overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: linear-gradient(135deg, #0a0a0b 0%, #141416 100%);
   color: #ffffff;
   display: flex; align-items: center; justify-content: center;
 }
 .card {
-  width: 420px; padding: 40px 36px;
-  border-radius: 24px;
+  width: 420px; max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  padding: 32px 28px;
+  border-radius: 20px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+  overflow-y: auto;
 }
 .brand {
   text-align: center; margin-bottom: 28px;
