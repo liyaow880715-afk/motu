@@ -3,8 +3,11 @@ import { NextRequest } from "next/server";
 import { createProject, listProjects } from "@/lib/services/project-service";
 import { projectCreateSchema } from "@/lib/validations/project";
 import { handleRouteError, ok } from "@/lib/utils/route";
+import { env } from "@/lib/utils/env";
 
 function getAccessKeyFromHeader(request: NextRequest): string | undefined {
+  // Desktop: local SQLite is single-user, don't isolate by access key
+  if (env.APP_RUNTIME === "desktop") return undefined;
   return request.headers.get("x-access-key") ?? undefined;
 }
 

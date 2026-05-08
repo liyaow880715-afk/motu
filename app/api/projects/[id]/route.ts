@@ -4,12 +4,17 @@ import { prisma } from "@/lib/db/prisma";
 import { deleteProject, getProjectDetail, updateProject } from "@/lib/services/project-service";
 import { projectUpdateSchema } from "@/lib/validations/project";
 import { fail, handleRouteError, ok } from "@/lib/utils/route";
+import { env } from "@/lib/utils/env";
 
 function getAccessKeyFromHeader(request: NextRequest): string | undefined {
+  // Desktop: local SQLite is single-user, don't isolate by access key
+  if (env.APP_RUNTIME === "desktop") return undefined;
   return request.headers.get("x-access-key") ?? undefined;
 }
 
 async function verifyProjectOwnership(projectId: string, accessKey: string | undefined) {
+  // Desktop: local SQLite is single-user, bypass ownership check
+  if (env.APP_RUNTIME === "desktop") return true;
   if (!accessKey) return false;
   const project = await prisma.project.findUnique({
     where: { id: projectId },

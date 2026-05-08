@@ -16,7 +16,7 @@ export function ExportPanel({ project }: { project: any }) {
   const generatedSections = project.sections.filter((section: any) => Boolean(section.imageUrl));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+    <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
       <Card>
         <CardHeader>
           <CardTitle>一键导出</CardTitle>
@@ -27,13 +27,13 @@ export function ExportPanel({ project }: { project: any }) {
         <CardContent className="space-y-4">
           <a
             href={`/api/projects/${project.id}/export/images`}
-            className="flex rounded-2xl border border-border bg-white px-4 py-3 text-sm font-medium hover:bg-muted"
+            className="flex rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             一键导出详情页全部图像 ZIP
           </a>
           <a
             href={`/api/projects/${project.id}/export/json`}
-            className="flex rounded-2xl border border-border bg-white px-4 py-3 text-sm font-medium hover:bg-muted"
+            className="flex rounded-2xl bg-primary/10 px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
           >
             导出项目 JSON
           </a>
@@ -67,7 +67,7 @@ export function ExportPanel({ project }: { project: any }) {
               <p className="text-sm font-medium">头图候选素材</p>
               <Badge variant="outline">{galleryAssets.length} 个素材</Badge>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 xl:grid-cols-2">
               {galleryAssets.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                   暂无头图素材
@@ -91,7 +91,7 @@ export function ExportPanel({ project }: { project: any }) {
               <p className="text-sm font-medium">详情页模块图</p>
               <Badge variant="outline">{generatedSections.length} 个模块</Badge>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 xl:grid-cols-2">
               {generatedSections.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                   暂无可导出的详情页模块图
