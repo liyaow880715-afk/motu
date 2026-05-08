@@ -607,6 +607,7 @@ function spawnNodeScript(scriptPath, env) {
       env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32",
     });
 
     let stderr = "";
@@ -692,6 +693,7 @@ async function startNextServer(runtime) {
     env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
+    shell: process.platform === "win32",
   });
 
   let serverErrors = "";
