@@ -18,7 +18,11 @@
 /out/
 
 # production
-/build
+/build/*
+!/build/icon.svg
+!/build/icon.png
+!/build/icon.ico
+!/build/icon.icns
 /dist-desktop
 /release
 
