@@ -173,6 +173,30 @@ function verifyServerSignature(data, signature, publicKey) {
 }
 
 // ============================================================================
+// Electron Exec Path Fallback (Windows shortcut / install path mismatch)
+// ============================================================================
+
+function getElectronExecPath() {
+  if (fs.existsSync(process.execPath)) {
+    return process.execPath;
+  }
+  // Windows: shortcut may point to old path after rename; try argv[0]
+  if (process.platform === "win32" && process.argv[0] && fs.existsSync(process.argv[0])) {
+    return process.argv[0];
+  }
+  // Final fallback: app.getPath('exe')
+  const fromApp = app.getPath("exe");
+  if (fs.existsSync(fromApp)) {
+    return fromApp;
+  }
+  throw new Error(
+    `找不到 Electron 可执行文件，请尝试完全卸载旧版本后重新安装。\n` +
+    `process.execPath: ${process.execPath}\n` +
+    `app.getPath('exe'): ${fromApp}`
+  );
+}
+
+// ============================================================================
 // Window Management
 // ============================================================================
 
@@ -577,7 +601,8 @@ function getRuntimeEnv(runtime, port) {
 
 function spawnNodeScript(scriptPath, env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [scriptPath], {
+    const execPath = getElectronExecPath();
+    const child = spawn(execPath, [scriptPath], {
       cwd: getStandaloneRoot(),
       env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
       windowsHide: true,
@@ -661,7 +686,8 @@ async function startNextServer(runtime) {
   const env = getRuntimeEnv(runtime, port);
 
   log.info("Starting Next.js server on port", port);
-  serverProcess = spawn(process.execPath, [serverEntry], {
+  const execPath = getElectronExecPath();
+  serverProcess = spawn(execPath, [serverEntry], {
     cwd: getStandaloneRoot(),
     env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
     windowsHide: true,
@@ -670,6 +696,14 @@ async function startNextServer(runtime) {
 
   let serverErrors = "";
   serverProcess.stderr.on("data", (chunk) => { serverErrors += chunk.toString(); });
+
+  serverProcess.on("error", (err) => {
+    if (!isQuitting) {
+      log.error("Server spawn error:", err);
+      dialog.showErrorBox("摹图 启动失败", err.message || "内置服务启动失败");
+      app.quit();
+    }
+  });
 
   serverProcess.on("exit", (code) => {
     if (!isQuitting && code !== 0) {

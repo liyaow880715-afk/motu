@@ -129,7 +129,7 @@
           ]
         }
       ],
-      "artifactName": "banana-mall-${version}.${ext}"
+      "artifactName": "motu-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
