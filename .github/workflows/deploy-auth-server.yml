@@ -23,8 +23,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            sudo chown -R $USER:$USER /opt/auth-server || true
             cd /opt/auth-server
-            git pull origin main || (rm -rf /opt/auth-server && cd /opt && git clone --depth 1 https://github.com/liyaow880715-afk/motu.git temp_clone && mv temp_clone/auth-server . && rm -rf temp_clone)
+            git pull origin main || (sudo rm -rf /opt/auth-server && cd /opt && git clone --depth 1 https://github.com/liyaow880715-afk/motu.git temp_clone && sudo mv temp_clone/auth-server . && rm -rf temp_clone)
+            cd /opt/auth-server
             npm install
             npx prisma generate --schema=prisma/schema.prisma
             npx prisma migrate deploy --schema=prisma/schema.prisma
