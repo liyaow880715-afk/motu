@@ -453,7 +453,7 @@ function getRuntimeEnv(runtime, port) {
     STORAGE_ROOT: runtime.storageDir,
     APP_SECRET: runtime.appSecret,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "摹图",
-    AUTH_SERVER_URL: process.env.AUTH_SERVER_URL || "",
+    AUTH_SERVER_URL: process.env.AUTH_SERVER_URL || undefined,
   };
 }
 
