@@ -1,0 +1,20 @@
+import { NextRequest } from "next/server";
+
+import { resolveProviderConnectionInput, testProviderConnection } from "@/lib/services/provider-service";
+import { providerInputSchema } from "@/lib/validations/provider";
+import { checkAdmin } from "@/lib/utils/admin-check";
+import { handleRouteError, ok, fail } from "@/lib/utils/route";
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!checkAdmin(request)) {
+      return fail("UNAUTHORIZED", "管理员密码错误", null, 403);
+    }
+    const parsed = providerInputSchema.parse(await request.json());
+    const input = await resolveProviderConnectionInput(parsed);
+    const result = await testProviderConnection(input);
+    return ok(result);
+  } catch (error) {
+    return handleRouteError(error);
+  }
+}

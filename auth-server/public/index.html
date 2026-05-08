@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>摹图验证服务器 - 管理后台</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --primary: #38bdf8;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .login-box {
+      max-width: 360px; margin: 120px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px;
+      text-align: center;
+    }
+    .login-box h1 { font-size: 18px; margin-bottom: 8px; }
+    .login-box p { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    input[type="password"], select, input[type="number"], input[type="text"] {
+      width: 100%; padding: 10px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text);
+      font-size: 14px; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    button {
+      width: 100%; padding: 10px;
+      background: var(--primary); color: #000;
+      border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { width: auto; padding: 6px 14px; font-size: 13px; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .hidden { display: none !important; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .header h1 { font-size: 20px; }
+    .header .subtitle { color: var(--muted); font-size: 12px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .stat-value { font-size: 24px; font-weight: 600; }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; margin-bottom: 16px;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+    }
+    .panel-body { padding: 16px 20px; }
+    .form-row { display: grid; grid-template-columns: 1fr 100px 1fr auto; gap: 10px; align-items: end; }
+    @media (max-width: 640px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 8px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 500;
+    }
+    .badge-peruse { background: rgba(52,211,153,0.15); color: #34d399; }
+    .badge-daily { background: rgba(56,189,248,0.15); color: #38bdf8; }
+    .badge-monthly { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .badge-active { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+    .badge-expired { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+    .badge-unused { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+    .badge-used { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+    .key-code {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      background: rgba(255,255,255,0.06); padding: 2px 8px;
+      border-radius: 6px; font-size: 12px;
+    }
+    .empty { text-align: center; padding: 40px; color: var(--muted); }
+    .actions { display: flex; gap: 6px; }
+    .toast {
+      position: fixed; top: 20px; right: 20px;
+      padding: 12px 18px; border-radius: 10px;
+      font-size: 13px; z-index: 1000;
+      animation: slideIn 0.3s ease;
+    }
+    .toast-success { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+    .toast-error { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .loader {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const API_BASE = '';
+    let adminSecret = localStorage.getItem('motu_admin_secret') || '';
+
+    function el(id) { return document.getElementById(id); }
+
+    function showToast(msg, type = 'success') {
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2500);
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...opts,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-secret': adminSecret,
+          ...opts.headers,
+        },
+      });
+      return res.json();
+    }
+
+    // ===== Views =====
+
+    function renderLogin() {
+      return `
+        <div class="login-box">
+          <h1>🔐 摹图验证服务器</h1>
+          <p>请输入管理员密码进入后台</p>
+          <input type="password" id="pw" placeholder="管理员密码" value="${adminSecret}" onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="doLogin()" style="margin-top:12px" id="loginBtn">进入后台</button>
+        </div>
+      `;
+    }
+
+    async function doLogin() {
+      const pw = el('pw').value.trim();
+      if (!pw) { showToast('请输入密码', 'error'); return; }
+      el('loginBtn').disabled = true;
+      const data = await api('/api/keys');
+      el('loginBtn').disabled = false;
+      if (data.success) {
+        adminSecret = pw;
+        localStorage.setItem('motu_admin_secret', pw);
+        renderDashboard();
+      } else {
+        showToast(data.error?.message || '密码错误', 'error');
+      }
+    }
+
+    function renderDashboard() {
+      el('app').innerHTML = `
+        <div class="container">
+          <div class="header">
+            <div>
+              <h1>🎨 摹图验证服务器</h1>
+              <div class="subtitle">中央授权管理后台</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-sm btn-ghost" onclick="location.reload()">刷新</button>
+              <button class="btn-sm btn-ghost" onclick="logout()">退出</button>
+            </div>
+          </div>
+
+          <div class="stats" id="statsArea">
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(148,163,184,0.1)">🔑</div><div><div class="stat-value">-</div><div class="stat-label">总激活码</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(52,211,153,0.1)">✅</div><div><div class="stat-value">-</div><div class="stat-label">已激活</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(248,113,113,0.1)">⏰</div><div><div class="stat-value">-</div><div class="stat-label">已过期</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(251,191,36,0.1)">⚡</div><div><div class="stat-value">-</div><div class="stat-label">次卡已用</div></div></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span style="font-weight:500;font-size:14px">生成新激活码</span>
+            </div>
+            <div class="panel-body">
+              <div class="form-row">
+                <div>
+                  <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">类型</label>
+                  <select id="newType">
+                    <option value="PER_USE">次卡</option>
+                    <option value="DAILY">日卡</option>
+                    <option value="MONTHLY">月卡</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">数量</label>
+                  <input type="number" id="newCount" min="1" max="100" value="1">
+                </div>
+                <div>
+                  <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">备注</label>
+                  <input type="text" id="newLabel" placeholder="可选">
+                </div>
+                <div>
+                  <button class="btn-sm" onclick="createKeys()" id="createBtn" style="width:100%">生成</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span style="font-weight:500;font-size:14px">激活码列表</span>
+              <span id="listCount" style="font-size:12px;color:var(--muted)"></span>
+            </div>
+            <div class="panel-body" style="padding:0">
+              <div id="listArea"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      loadStats();
+      loadKeys();
+    }
+
+    async function loadStats() {
+      const data = await api('/api/stats');
+      if (!data.success) return;
+      const s = data.data;
+      el('statsArea').innerHTML = `
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(148,163,184,0.1)">🔑</div><div><div class="stat-value">${s.total}</div><div class="stat-label">总激活码</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(52,211,153,0.1)">✅</div><div><div class="stat-value">${s.activated}</div><div class="stat-label">已激活</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(248,113,113,0.1)">⏰</div><div><div class="stat-value">${s.expired}</div><div class="stat-label">已过期</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(251,191,36,0.1)">⚡</div><div><div class="stat-value">${s.perUseUsed}</div><div class="stat-label">次卡已用</div></div></div>
+      `;
+    }
+
+    async function loadKeys() {
+      el('listArea').innerHTML = '<div class="empty"><div class="loader"></div></div>';
+      const data = await api('/api/keys');
+      if (!data.success) {
+        el('listArea').innerHTML = '<div class="empty">加载失败: ' + (data.error?.message || '未知错误') + '</div>';
+        return;
+      }
+      const keys = data.data;
+      el('listCount').textContent = `共 ${keys.length} 条`;
+      if (keys.length === 0) {
+        el('listArea').innerHTML = '<div class="empty">暂无激活码</div>';
+        return;
+      }
+
+      const rows = keys.map(k => {
+        const isExpired = k.expiresAt && new Date() > new Date(k.expiresAt);
+        const isUsed = k.type === 'PER_USE' && k.usedCount >= 1;
+        let statusBadge = '';
+        if (isExpired) statusBadge = '<span class="badge badge-expired">已过期</span>';
+        else if (isUsed) statusBadge = '<span class="badge badge-used">已用完</span>';
+        else if (k.activatedAt) statusBadge = '<span class="badge badge-active">已激活</span>';
+        else statusBadge = '<span class="badge badge-unused">未使用</span>';
+
+        const typeBadge = k.type === 'PER_USE' ? '<span class="badge badge-peruse">次卡</span>' :
+                          k.type === 'DAILY' ? '<span class="badge badge-daily">日卡</span>' :
+                          '<span class="badge badge-monthly">月卡</span>';
+
+        const timeInfo = k.activatedAt
+          ? `激活于 ${new Date(k.activatedAt).toLocaleString('zh-CN')}${k.expiresAt ? ' · 过期于 ' + new Date(k.expiresAt).toLocaleString('zh-CN') : ''}`
+          : `创建于 ${new Date(k.createdAt).toLocaleString('zh-CN')} · 未激活`;
+
+        return `<tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="key-code">${k.key}</span>
+              ${typeBadge}
+              ${statusBadge}
+              ${k.label ? `<span style="font-size:11px;color:var(--muted)">${k.label}</span>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${timeInfo}${k.type === 'PER_USE' ? ' · 已使用 ' + k.usedCount + ' 次' : ''}</div>
+          </td>
+          <td style="width:1px;white-space:nowrap">
+            <div class="actions">
+              <button class="btn-sm btn-ghost" onclick="copyKey('${k.key}')">复制</button>
+              <button class="btn-sm btn-danger" onclick="deleteKey('${k.id}')">删除</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      el('listArea').innerHTML = `
+        <table>
+          <thead><tr><th>激活码</th><th style="width:1px"></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    async function createKeys() {
+      const type = el('newType').value;
+      const count = parseInt(el('newCount').value, 10) || 1;
+      const label = el('newLabel').value.trim();
+      el('createBtn').disabled = true;
+      const data = await api('/api/keys', {
+        method: 'POST',
+        body: JSON.stringify({ type, count, label: label || undefined }),
+      });
+      el('createBtn').disabled = false;
+      if (data.success) {
+        showToast(`成功生成 ${data.data.length} 个激活码`);
+        el('newLabel').value = '';
+        el('newCount').value = '1';
+        loadKeys();
+        loadStats();
+      } else {
+        showToast(data.error?.message || '创建失败', 'error');
+      }
+    }
+
+    async function deleteKey(id) {
+      if (!confirm('确定删除这个激活码？')) return;
+      const data = await api(`/api/keys/${id}`, { method: 'DELETE' });
+      if (data.success) {
+        showToast('已删除');
+        loadKeys();
+        loadStats();
+      } else {
+        showToast(data.error?.message || '删除失败', 'error');
+      }
+    }
+
+    function copyKey(key) {
+      navigator.clipboard.writeText(key).then(() => showToast('已复制到剪贴板'));
+    }
+
+    function logout() {
+      adminSecret = '';
+      localStorage.removeItem('motu_admin_secret');
+      el('app').innerHTML = renderLogin();
+    }
+
+    // Init
+    if (adminSecret) {
+      renderDashboard();
+    } else {
+      el('app').innerHTML = renderLogin();
+    }
+  </script>
+</body>
+</html>

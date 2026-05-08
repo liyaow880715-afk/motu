@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum KeyType {
+  PER_USE
+  DAILY
+  MONTHLY
+}
+
+model AccessKey {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  label       String?
+  type        KeyType
+  usedCount   Int       @default(0)
+  activatedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+}

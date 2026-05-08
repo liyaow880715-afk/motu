@@ -1,0 +1,143 @@
+{
+  "name": "banana-mall",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI e-commerce detail page generation and editing workspace",
+  "author": "零禾（上海）网络科技有限公司",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "node ./scripts/run-next-safe.cjs dev",
+    "build": "npm run prisma:generate && node ./scripts/run-next-safe.cjs build",
+    "start": "node ./scripts/run-next-safe.cjs start",
+    "desktop:start": "node ./scripts/build-desktop.cjs start",
+    "build:desktop": "node ./scripts/build-desktop.cjs prepare",
+    "dist:win": "npm run build:desktop && node ./node_modules/electron-builder/out/cli/cli.js --win nsis",
+    "dist:mac": "npm run build:desktop && node ./node_modules/electron-builder/out/cli/cli.js --mac dmg zip",
+    "dist:all": "npm run build:desktop && node ./node_modules/electron-builder/out/cli/cli.js --win nsis --mac dmg zip",
+    "lint": "node -e \"console.log('Linting is not configured for this Windows path-safe build.')\"",
+    "prisma:generate": "node ./scripts/run-prisma-safe.cjs generate",
+    "prisma:migrate": "node ./scripts/apply-prisma-migrations.cjs",
+    "prisma:deploy": "node ./scripts/apply-prisma-migrations.cjs"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@prisma/client": "^6.19.2",
+    "@radix-ui/react-alert-dialog": "^1.1.14",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-scroll-area": "^1.2.9",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-toast": "^1.2.14",
+    "archiver": "^7.0.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "docx": "^9.6.1",
+    "lucide-react": "^0.511.0",
+    "nanoid": "^5.1.5",
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hook-form": "^7.65.0",
+    "sharp": "^0.34.5",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.3.0",
+    "zod": "^4.1.11",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/archiver": "^7.0.0",
+    "@types/node": "^20.17.30",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "autoprefixer": "^10.4.21",
+    "electron": "^35.2.2",
+    "electron-builder": "^26.8.1",
+    "png2icons": "^2.0.1",
+    "postcss": "^8.4.49",
+    "prisma": "^6.19.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  },
+  "build": {
+    "appId": "com.matrixinspire.motu",
+    "productName": "摹图",
+    "asar": false,
+    "asarUnpack": [
+      ".next/standalone/node_modules/.prisma/**/*",
+      ".next/standalone/node_modules/@prisma/**/*"
+    ],
+    "directories": {
+      "output": "dist-desktop",
+      "buildResources": "build"
+    },
+    "files": [
+      "desktop/**/*",
+      ".next/standalone/**/*",
+      ".next/static/**/*",
+      "public/**/*",
+      "scripts/runtime-paths.cjs",
+      "scripts/apply-prisma-migrations.cjs",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "motu-${version}-${arch}.${ext}",
+      "category": "public.app-category.graphics-design"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "banana-mall-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "artifactName": "motu-setup-${version}.${ext}"
+    }
+  }
+}

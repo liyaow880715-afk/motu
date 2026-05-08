@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  motu-auth:
+    build: .
+    container_name: motu-auth-server
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=file:/data/auth.db
+      - ADMIN_SECRET=${ADMIN_SECRET:-banana-admin}
+      - PORT=4000
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
