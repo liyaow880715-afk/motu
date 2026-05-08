@@ -44,10 +44,11 @@ export function QuickStartWorkspace() {
 
     // Consume PER_USE key before creating project
     if (keyInfo?.type === "PER_USE") {
+      const machineId = typeof window !== "undefined" ? localStorage.getItem("bm_machine_id") : null;
       const consumeRes = await fetch("/api/auth/consume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: keyInfo.key }),
+        body: JSON.stringify({ key: keyInfo.key, machineId }),
       });
       const consumeData = await consumeRes.json();
       if (!consumeData.success) {

@@ -22,7 +22,12 @@ function getConfigPath() {
 
 function readActivationConfig() {
   try {
-    return JSON.parse(fs.readFileSync(getConfigPath(), "utf8"));
+    const config = JSON.parse(fs.readFileSync(getConfigPath(), "utf8"));
+    if (config && !config.machineId) {
+      config.machineId = crypto.randomUUID();
+      writeActivationConfig(config);
+    }
+    return config;
   } catch {
     return null;
   }
@@ -39,12 +44,12 @@ function clearActivationConfig() {
   } catch {}
 }
 
-async function verifyActivationOnServer(serverUrl, key) {
+async function verifyActivationOnServer(serverUrl, key, machineId) {
   const url = new URL("/api/auth/verify", serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl);
   const response = await fetch(url.toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key }),
+    body: JSON.stringify({ key, machineId }),
   });
   return response.json();
 }
@@ -366,6 +371,12 @@ function createMainWindow(url) {
         true
       ).catch(() => {});
     }
+    if (config?.machineId) {
+      mainWindow.webContents.executeJavaScript(
+        `localStorage.setItem('bm_machine_id', ${JSON.stringify(config.machineId)});`,
+        true
+      ).catch(() => {});
+    }
   });
 
   return mainWindow.loadURL(url);
@@ -598,7 +609,9 @@ async function bootstrapDesktopApp() {
 // ============================================================================
 
 async function handleActivation(serverUrl, key) {
-  const result = await verifyActivationOnServer(serverUrl, key);
+  const config = readActivationConfig();
+  const machineId = config?.machineId || crypto.randomUUID();
+  const result = await verifyActivationOnServer(serverUrl, key, machineId);
   if (!result.success) {
     throw new Error(result.error?.message || "激活失败，请检查激活码和服务器地址");
   }
@@ -606,6 +619,7 @@ async function handleActivation(serverUrl, key) {
     serverUrl: serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl,
     key,
     keyInfo: result.data,
+    machineId,
     activatedAt: new Date().toISOString(),
   });
   return result;

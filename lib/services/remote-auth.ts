@@ -46,21 +46,23 @@ export function isRemoteAuthEnabled(): boolean {
   return !!AUTH_SERVER_URL;
 }
 
-export async function remoteVerify(key: string): Promise<ApiResponse<KeyInfo>> {
+export async function remoteVerify(key: string, machineId?: string | null): Promise<ApiResponse<KeyInfo>> {
   return fetchRemote<KeyInfo>("/api/auth/verify", {
     method: "POST",
-    body: JSON.stringify({ key }),
+    body: JSON.stringify({ key, machineId }),
   });
 }
 
-export async function remoteGetMe(key: string): Promise<ApiResponse<KeyInfo>> {
-  return fetchRemote<KeyInfo>(`/api/auth/me?key=${encodeURIComponent(key)}`);
+export async function remoteGetMe(key: string, machineId?: string | null): Promise<ApiResponse<KeyInfo>> {
+  const qs = new URLSearchParams({ key });
+  if (machineId) qs.append("machineId", machineId);
+  return fetchRemote<KeyInfo>(`/api/auth/me?${qs.toString()}`);
 }
 
-export async function remoteConsume(key: string): Promise<ApiResponse<KeyInfo>> {
+export async function remoteConsume(key: string, machineId?: string | null): Promise<ApiResponse<KeyInfo>> {
   return fetchRemote<KeyInfo>("/api/auth/consume", {
     method: "POST",
-    body: JSON.stringify({ key }),
+    body: JSON.stringify({ key, machineId }),
   });
 }
 

@@ -243,6 +243,7 @@ model AccessKey {
   usedCount   Int       @default(0)
   activatedAt DateTime?
   expiresAt   DateTime?
+  machineId   String?
   createdAt   DateTime  @default(now())
 
   @@index([type])

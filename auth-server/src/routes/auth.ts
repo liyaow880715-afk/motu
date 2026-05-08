@@ -26,7 +26,10 @@ function computeExpiresAt(type: string, activatedAt: Date): Date | null {
 // POST /api/auth/verify
 router.post("/verify", async (req, res) => {
   try {
-    const schema = z.object({ key: z.string().min(1, "请输入激活码") });
+    const schema = z.object({
+      key: z.string().min(1, "请输入激活码"),
+      machineId: z.string().optional(),
+    });
     const parsed = schema.parse(req.body);
 
     const accessKey = await prisma.accessKey.findUnique({
@@ -37,6 +40,13 @@ router.post("/verify", async (req, res) => {
       return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
     }
 
+    // Machine binding check
+    if (parsed.machineId) {
+      if (accessKey.machineId && accessKey.machineId !== parsed.machineId) {
+        return res.status(403).json(fail("MACHINE_BOUND", "激活码已被其他设备使用", 403));
+      }
+    }
+
     let { activatedAt, expiresAt } = accessKey;
 
     // First-time activation
@@ -45,7 +55,13 @@ router.post("/verify", async (req, res) => {
       expiresAt = computeExpiresAt(accessKey.type, activatedAt);
       await prisma.accessKey.update({
         where: { id: accessKey.id },
-        data: { activatedAt, expiresAt },
+        data: { activatedAt, expiresAt, machineId: parsed.machineId || accessKey.machineId },
+      });
+    } else if (parsed.machineId && !accessKey.machineId) {
+      // Bind machine on first verify after schema migration
+      await prisma.accessKey.update({
+        where: { id: accessKey.id },
+        data: { machineId: parsed.machineId },
       });
     }
 
@@ -75,6 +91,7 @@ router.post("/verify", async (req, res) => {
 router.get("/me", async (req, res) => {
   try {
     const key = req.query.key as string;
+    const machineId = req.query.machineId as string | undefined;
     if (!key) {
       return res.status(401).json(fail("MISSING_KEY", "缺少激活码", 401));
     }
@@ -89,6 +106,10 @@ router.get("/me", async (req, res) => {
 
     if (accessKey.type !== "PER_USE" && accessKey.expiresAt && new Date() > accessKey.expiresAt) {
       return res.status(403).json(fail("KEY_EXPIRED", "激活码已过期", 403));
+    }
+
+    if (machineId && accessKey.machineId && accessKey.machineId !== machineId) {
+      return res.status(403).json(fail("MACHINE_BOUND", "激活码已被其他设备使用", 403));
     }
 
     return res.json(ok({
@@ -108,7 +129,7 @@ router.get("/me", async (req, res) => {
 // POST /api/auth/consume
 router.post("/consume", async (req, res) => {
   try {
-    const schema = z.object({ key: z.string().min(1) });
+    const schema = z.object({ key: z.string().min(1), machineId: z.string().optional() });
     const parsed = schema.parse(req.body);
 
     const accessKey = await prisma.accessKey.findUnique({
@@ -117,6 +138,10 @@ router.post("/consume", async (req, res) => {
 
     if (!accessKey) {
       return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
+    }
+
+    if (parsed.machineId && accessKey.machineId && accessKey.machineId !== parsed.machineId) {
+      return res.status(403).json(fail("MACHINE_BOUND", "激活码已被其他设备使用", 403));
     }
 
     if (accessKey.type !== "PER_USE" && accessKey.expiresAt && new Date() > accessKey.expiresAt) {

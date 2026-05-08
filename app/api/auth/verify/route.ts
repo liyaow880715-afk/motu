@@ -7,6 +7,7 @@ import { remoteVerify } from "@/lib/services/remote-auth";
 
 const verifySchema = z.object({
   key: z.string().min(1, "请输入激活码"),
+  machineId: z.string().optional(),
 });
 
 function computeExpiresAt(type: string, activatedAt: Date): Date | null {
@@ -20,13 +21,17 @@ function computeExpiresAt(type: string, activatedAt: Date): Date | null {
   return d;
 }
 
-async function localVerify(key: string) {
+async function localVerify(key: string, machineId?: string | null) {
   const accessKey = await prisma.accessKey.findUnique({
     where: { key },
   });
 
   if (!accessKey) {
     return fail("INVALID_KEY", "激活码不存在", null, 401);
+  }
+
+  if (machineId && accessKey.machineId && accessKey.machineId !== machineId) {
+    return fail("MACHINE_BOUND", "激活码已被其他设备使用", null, 403);
   }
 
   let { activatedAt, expiresAt } = accessKey;
@@ -37,7 +42,12 @@ async function localVerify(key: string) {
     expiresAt = computeExpiresAt(accessKey.type, activatedAt);
     await prisma.accessKey.update({
       where: { id: accessKey.id },
-      data: { activatedAt, expiresAt },
+      data: { activatedAt, expiresAt, machineId: machineId || accessKey.machineId },
+    });
+  } else if (machineId && !accessKey.machineId) {
+    await prisma.accessKey.update({
+      where: { id: accessKey.id },
+      data: { machineId },
     });
   }
 
@@ -63,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // If remote auth server is configured, forward the request
     if (env.AUTH_SERVER_URL) {
-      const remoteRes = await remoteVerify(parsed.key);
+      const remoteRes = await remoteVerify(parsed.key, parsed.machineId);
       if (!remoteRes.success) {
         return fail(
           remoteRes.error!.code,
@@ -76,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Otherwise use local database
-    return await localVerify(parsed.key);
+    return await localVerify(parsed.key, parsed.machineId);
   } catch (error) {
     return handleRouteError(error);
   }
