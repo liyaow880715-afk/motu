@@ -11,6 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/hooks/use-auth-store";
+import { useBrandStore } from "@/hooks/use-brand-store";
 
 const navItems = [
   { href: "/", label: "快速开始", icon: FolderKanban },
@@ -35,6 +36,7 @@ function KeyTypeBadge({ type }: { type: string | undefined }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { keyInfo, clearKey } = useAuthStore();
+  const { brandName, companyName, version } = useBrandStore();
 
   const handleLogout = () => {
     clearKey();
@@ -57,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               M
             </div>
             <div>
-              <p className="text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">摹图</p>
+              <p className="text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{brandName}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">AI 电商详情页生成与编辑工作台</p>
             </div>
           </Link>
@@ -112,11 +114,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">Created By</p>
                   <p className="mt-2 text-sm font-semibold tracking-[0.02em] text-slate-900 dark:text-white">
-                    零禾（上海）网络科技有限公司
+                    {companyName}
                   </p>
                 </div>
                 <div className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/8 dark:text-slate-300">
-                  V1
+                  {version}
                 </div>
               </div>
 

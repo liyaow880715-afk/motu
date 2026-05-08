@@ -5,6 +5,7 @@ import { Loader2, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { ProviderSettings } from "@/components/providers/provider-settings";
+import { BrandSettings } from "@/components/settings/brand-settings";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -201,6 +202,8 @@ export default function ProviderSettingsPageClient() {
       ) : (
         <ProviderSettings initialProviders={providers} adminSecret={adminSecret} />
       )}
+
+      <BrandSettings />
     </div>
   );
 }
