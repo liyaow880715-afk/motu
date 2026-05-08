@@ -608,7 +608,7 @@ function spawnNodeScript(scriptPath, env) {
       cwd: getStandaloneRoot(),
       env: spawnEnv,
       windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: "pipe",
     });
 
     let stderr = "";
@@ -695,7 +695,7 @@ async function startNextServer(runtime) {
     cwd: getStandaloneRoot(),
     env: spawnEnv,
     windowsHide: true,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: "pipe",
   });
 
   let serverErrors = "";
