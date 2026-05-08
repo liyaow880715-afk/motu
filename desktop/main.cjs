@@ -584,7 +584,7 @@ async function ensureDesktopRuntimeConfig() {
 }
 
 function getRuntimeEnv(runtime, port) {
-  return {
+  const env = {
     ...process.env,
     NODE_ENV: "production",
     PORT: String(port),
@@ -595,8 +595,11 @@ function getRuntimeEnv(runtime, port) {
     STORAGE_ROOT: runtime.storageDir,
     APP_SECRET: runtime.appSecret,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "摹图",
-    AUTH_SERVER_URL: process.env.AUTH_SERVER_URL || undefined,
   };
+  if (process.env.AUTH_SERVER_URL) {
+    env.AUTH_SERVER_URL = process.env.AUTH_SERVER_URL;
+  }
+  return env;
 }
 
 function spawnNodeScript(scriptPath, env) {
@@ -604,10 +607,9 @@ function spawnNodeScript(scriptPath, env) {
     const execPath = getElectronExecPath();
     const child = spawn(execPath, [scriptPath], {
       cwd: getStandaloneRoot(),
-      env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
+      env: Object.fromEntries(Object.entries({ ...env, ELECTRON_RUN_AS_NODE: "1" }).filter(([, v]) => v !== undefined)),
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
-      shell: process.platform === "win32",
     });
 
     let stderr = "";
@@ -690,10 +692,9 @@ async function startNextServer(runtime) {
   const execPath = getElectronExecPath();
   serverProcess = spawn(execPath, [serverEntry], {
     cwd: getStandaloneRoot(),
-    env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
+    env: Object.fromEntries(Object.entries({ ...env, ELECTRON_RUN_AS_NODE: "1" }).filter(([, v]) => v !== undefined)),
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
-    shell: process.platform === "win32",
   });
 
   let serverErrors = "";
