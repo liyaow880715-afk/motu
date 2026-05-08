@@ -23,9 +23,18 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            sudo chown -R $USER:$USER /opt/auth-server || true
-            cd /opt/auth-server
-            git pull origin main || (sudo rm -rf /opt/auth-server && cd /opt && git clone --depth 1 https://github.com/liyaow880715-afk/motu.git temp_clone && sudo mv temp_clone/auth-server . && rm -rf temp_clone)
+            # Ensure directory exists with correct permissions
+            sudo mkdir -p /opt/auth-server
+            sudo chown -R $USER:$USER /opt/auth-server
+
+            # Only pull if it's a git repo; NEVER rm -rf /opt/auth-server
+            if [ -d /opt/auth-server/.git ]; then
+              cd /opt/auth-server
+              git pull origin main || echo "Git pull failed, keeping existing files"
+            else
+              echo "Not a git repo, skipping git pull. Please restore manually if needed."
+            fi
+
             cd /opt/auth-server
             npm install
             npx prisma generate --schema=prisma/schema.prisma
