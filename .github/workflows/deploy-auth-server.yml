@@ -24,7 +24,7 @@ jobs:
       - name: Install auth-server dependencies
         run: |
           cd auth-server
-          npm ci
+          npm install
 
       - name: Generate Prisma Client
         run: |
