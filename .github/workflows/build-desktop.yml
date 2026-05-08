@@ -91,7 +91,7 @@ jobs:
             dist-desktop/*.blockmap
 
   release:
-    needs: [build-win, build-mac]
+    needs: [build-win]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
