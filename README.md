@@ -17,7 +17,7 @@
 
 ## ✨ Overview / 项目简介
 
-**摹图** 是一个 AI 驱动的电商详情页生成工具，由 [零禾（上海）网络科技有限公司](https://mxinspire.com) 开发。
+**摹图** 是一个 AI 驱动的电商详情页生成工具。
 
 MoTu is an AI-native workspace designed to turn product images into fully structured, high-conversion e-commerce detail pages.
 MoTu 是一个 AI 原生的电商内容工作台，可以将商品图片转化为完整的高转化详情页。由 零禾（上海）网络科技有限公司 开发。
