@@ -19,7 +19,6 @@ const navItems = [
   { href: "/projects/new", label: "高级创建", icon: GalleryVerticalEnd },
   { href: "/templates", label: "套版中心", icon: LayoutTemplate },
   { href: "/hero-batch", label: "批量主图", icon: Images },
-  { href: "/settings/keys", label: "激活码管理", icon: KeyRound },
 ];
 
 function KeyTypeBadge({ type }: { type: string | undefined }) {
