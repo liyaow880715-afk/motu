@@ -308,11 +308,12 @@
               ${statusBadge}
               ${k.label ? `<span style="font-size:11px;color:var(--muted)">${k.label}</span>` : ''}
             </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">${timeInfo}${k.type === 'PER_USE' ? ' · 已使用 ' + k.usedCount + ' 次' : ''}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">${timeInfo}${k.type === 'PER_USE' ? ' · 已使用 ' + k.usedCount + ' 次' : ''}${k.machineId ? ' · 已绑定设备' : ''}</div>
           </td>
           <td style="width:1px;white-space:nowrap">
             <div class="actions">
               <button class="btn-sm btn-ghost" onclick="copyKey('${k.key}')">复制</button>
+              ${k.machineId ? `<button class="btn-sm btn-warning" onclick="unbindKey('${k.id}')">解绑</button>` : ''}
               <button class="btn-sm btn-danger" onclick="deleteKey('${k.id}')">删除</button>
             </div>
           </td>
@@ -345,6 +346,17 @@
         loadStats();
       } else {
         showToast(data.error?.message || '创建失败', 'error');
+      }
+    }
+
+    async function unbindKey(id) {
+      if (!confirm('确定解绑这个激活码的设备绑定？解绑后可在新设备上重新激活。')) return;
+      const data = await api(`/api/keys/${id}/unbind`, { method: 'POST' });
+      if (data.success) {
+        showToast('已解绑设备');
+        loadKeys();
+      } else {
+        showToast(data.error?.message || '解绑失败', 'error');
       }
     }
 

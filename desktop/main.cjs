@@ -834,16 +834,8 @@ async function validateActivationOnStartup(config) {
     return checkOfflineGrace(config);
   }
 
-  const signPayload = {
-    key: config.keyInfo.key,
-    type: config.keyInfo.type,
-    expiresAt: config.keyInfo.expiresAt,
-    activatedAt: config.keyInfo.activatedAt,
-    machineId: config.machineId,
-    timestamp: config.keyInfo.timestamp,
-  };
-
-  if (!verifyServerSignature(signPayload, config.keyInfo.signature, publicKey)) {
+  const { signature, ...signPayload } = config.keyInfo;
+  if (!signature || !verifyServerSignature(signPayload, signature, publicKey)) {
     // Distinguish key rotation from tampering
     const currentPublicKey = await getPublicKey(config.serverUrl);
     if (currentPublicKey && currentPublicKey !== config.publicKey) {

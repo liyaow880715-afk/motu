@@ -43,6 +43,7 @@ router.get("/keys", async (req, res) => {
         usedCount: k.usedCount,
         activatedAt: k.activatedAt?.toISOString() ?? null,
         expiresAt: k.expiresAt?.toISOString() ?? null,
+        machineId: k.machineId,
         createdAt: k.createdAt.toISOString(),
       }))
     ));
@@ -105,6 +106,25 @@ router.delete("/keys/:id", async (req, res) => {
     await prisma.accessKey.delete({ where: { id } });
 
     return res.json(ok({ deleted: true }));
+  } catch (error: any) {
+    return res.status(500).json(fail("INTERNAL_ERROR", error.message || "服务器内部错误", 500));
+  }
+});
+
+// POST /api/keys/:id/unbind
+router.post("/keys/:id/unbind", async (req, res) => {
+  try {
+    if (!checkAdmin(req)) {
+      return res.status(403).json(fail("UNAUTHORIZED", "管理员密码错误", 403));
+    }
+
+    const { id } = req.params;
+    await prisma.accessKey.update({
+      where: { id },
+      data: { machineId: null },
+    });
+
+    return res.json(ok({ unbound: true }));
   } catch (error: any) {
     return res.status(500).json(fail("INTERNAL_ERROR", error.message || "服务器内部错误", 500));
   }
