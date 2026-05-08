@@ -177,22 +177,19 @@ function verifyServerSignature(data, signature, publicKey) {
 // ============================================================================
 
 function getElectronExecPath() {
-  if (fs.existsSync(process.execPath)) {
-    return process.execPath;
-  }
-  // Windows: shortcut may point to old path after rename; try argv[0]
-  if (process.platform === "win32" && process.argv[0] && fs.existsSync(process.argv[0])) {
-    return process.argv[0];
-  }
-  // Final fallback: app.getPath('exe')
-  const fromApp = app.getPath("exe");
-  if (fs.existsSync(fromApp)) {
-    return fromApp;
+  const candidates = [
+    { name: "process.execPath", path: process.execPath },
+    { name: "process.argv[0]", path: process.argv[0] },
+    { name: "app.getPath('exe')", path: app.getPath("exe") },
+  ];
+  for (const c of candidates) {
+    const exists = fs.existsSync(c.path);
+    log.info(`[getElectronExecPath] ${c.name} = ${c.path}, exists = ${exists}`);
+    if (exists) return c.path;
   }
   throw new Error(
     `找不到 Electron 可执行文件，请尝试完全卸载旧版本后重新安装。\n` +
-    `process.execPath: ${process.execPath}\n` +
-    `app.getPath('exe'): ${fromApp}`
+    `已尝试: ${candidates.map(c => c.name + '=' + c.path).join(', ')}`
   );
 }
 
@@ -605,9 +602,11 @@ function getRuntimeEnv(runtime, port) {
 function spawnNodeScript(scriptPath, env) {
   return new Promise((resolve, reject) => {
     const execPath = getElectronExecPath();
+    const spawnEnv = Object.fromEntries(Object.entries({ ...env, ELECTRON_RUN_AS_NODE: "1" }).filter(([, v]) => v !== undefined));
+    log.info(`[spawnNodeScript] execPath=${execPath}, cwd=${getStandaloneRoot()}, envKeys=${Object.keys(spawnEnv).length}`);
     const child = spawn(execPath, [scriptPath], {
       cwd: getStandaloneRoot(),
-      env: Object.fromEntries(Object.entries({ ...env, ELECTRON_RUN_AS_NODE: "1" }).filter(([, v]) => v !== undefined)),
+      env: spawnEnv,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -690,9 +689,11 @@ async function startNextServer(runtime) {
 
   log.info("Starting Next.js server on port", port);
   const execPath = getElectronExecPath();
+  const spawnEnv = Object.fromEntries(Object.entries({ ...env, ELECTRON_RUN_AS_NODE: "1" }).filter(([, v]) => v !== undefined));
+  log.info(`[startNextServer] execPath=${execPath}, serverEntry=${serverEntry}, cwd=${getStandaloneRoot()}, envKeys=${Object.keys(spawnEnv).length}`);
   serverProcess = spawn(execPath, [serverEntry], {
     cwd: getStandaloneRoot(),
-    env: Object.fromEntries(Object.entries({ ...env, ELECTRON_RUN_AS_NODE: "1" }).filter(([, v]) => v !== undefined)),
+    env: spawnEnv,
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -768,25 +769,27 @@ async function bootstrapDesktopApp() {
 async function handleActivation(serverUrl, key) {
   const config = readActivationConfig();
   const machineId = config?.machineId || crypto.randomUUID();
-  log.info("Activating key", key, "on", serverUrl, "machineId", machineId);
+  log.info("[handleActivation] key=", key, "server=", serverUrl, "machineId=", machineId);
 
-  // Fetch public key first (for signature verification)
   const publicKey = await getPublicKey(serverUrl);
   if (!publicKey) {
+    log.error("[handleActivation] cannot fetch public key");
     throw new Error("无法获取服务器公钥，请检查网络连接");
   }
 
   const result = await verifyActivationOnServer(serverUrl, key, machineId);
   if (!result.success) {
-    log.error("Activation failed:", result.error);
+    log.error("[handleActivation] verify failed:", result.error);
     throw new Error(result.error?.message || "激活失败，请检查激活码和服务器地址");
   }
 
-  // Verify server signature
   const { signature, ...signPayload } = result.data;
+  log.info("[handleActivation] signature present=", !!signature, "payload keys=", Object.keys(signPayload).join(","));
   if (!signature || !verifyServerSignature(signPayload, signature, publicKey)) {
+    log.error("[handleActivation] signature verification failed");
     throw new Error("激活响应签名验证失败，可能存在安全风险");
   }
+  log.info("[handleActivation] signature verified OK");
 
   writeActivationConfig({
     serverUrl: serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl,
@@ -798,6 +801,7 @@ async function handleActivation(serverUrl, key) {
     lastVerifiedAt: new Date().toISOString(),
     publicKey,
   });
+  log.info("[handleActivation] config saved");
   return result;
 }
 
@@ -813,14 +817,17 @@ function checkOfflineGrace(config) {
 
 async function validateActivationOnStartup(config) {
   const fingerprint = getMachineFingerprint();
+  log.info("[validateActivation] fingerprint=", fingerprint, "stored=", config.fingerprint);
 
   // 1. Hardware fingerprint mismatch
   if (config.fingerprint && config.fingerprint !== fingerprint) {
+    log.warn("[validateActivation] MACHINE_MISMATCH");
     return { valid: false, reason: "MACHINE_MISMATCH", message: "激活文件与当前设备不匹配" };
   }
 
   // 2. Backward compatibility: legacy config without signature → just heartbeat
   if (!config.keyInfo?.signature) {
+    log.info("[validateActivation] no signature, trying heartbeat");
     const heartbeat = await heartbeatActivation(config.serverUrl, config.key, config.machineId);
     if (heartbeat.success) {
       config.keyInfo = heartbeat.data;
@@ -833,17 +840,29 @@ async function validateActivationOnStartup(config) {
 
   // 3. Verify server signature
   const publicKey = config.publicKey || await getPublicKey(config.serverUrl);
+  log.info("[validateActivation] publicKey present=", !!publicKey, "stored publicKey=", !!config.publicKey);
   if (!publicKey) {
     return checkOfflineGrace(config);
   }
 
   const { signature, ...signPayload } = config.keyInfo;
-  if (!signature || !verifyServerSignature(signPayload, signature, publicKey)) {
-    // Distinguish key rotation from tampering
+  const sigOk = verifyServerSignature(signPayload, config.keyInfo.signature, publicKey);
+  log.info("[validateActivation] sigOk=", sigOk, "payloadKeys=", Object.keys(signPayload).join(","));
+  if (!sigOk) {
+    log.warn("[validateActivation] sig verify failed, trying heartbeat refresh");
+    const heartbeat = await heartbeatActivation(config.serverUrl, config.key, config.machineId);
+    if (heartbeat.success && heartbeat.data?.signature) {
+      config.keyInfo = heartbeat.data;
+      config.lastVerifiedAt = new Date().toISOString();
+      writeActivationConfig(config);
+      return { valid: true, offline: false };
+    }
     const currentPublicKey = await getPublicKey(config.serverUrl);
     if (currentPublicKey && currentPublicKey !== config.publicKey) {
+      log.warn("[validateActivation] KEY_ROTATION");
       return { valid: false, reason: "KEY_ROTATION", message: "服务器密钥已更新，请重新激活" };
     }
+    log.error("[validateActivation] INVALID_SIGNATURE");
     return { valid: false, reason: "INVALID_SIGNATURE", message: "激活签名验证失败，激活文件可能已被篡改" };
   }
 
@@ -856,7 +875,6 @@ async function validateActivationOnStartup(config) {
     return { valid: true, offline: false };
   }
 
-  // Heartbeat failed, check offline grace period
   return checkOfflineGrace(config);
 }
 
