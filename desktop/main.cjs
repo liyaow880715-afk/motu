@@ -16,18 +16,89 @@ log.info("Main process started");
 const { toSqliteFileUrl } = require("../scripts/runtime-paths.cjs");
 
 // ============================================================================
-// Activation Config
+// Anti-tampering: Hardware Fingerprint
 // ============================================================================
 
-const CONFIG_FILE = "activation.json";
+const FIXED_SALT = "motu-auth-v1-salt";
+
+function getSystemUuid() {
+  const { execSync } = require("child_process");
+  try {
+    if (process.platform === "win32") {
+      const out = execSync("wmic csproduct get UUID", { encoding: "utf8", timeout: 5000 });
+      const m = out.match(/([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})/);
+      return m ? m[1] : "";
+    } else if (process.platform === "darwin") {
+      const out = execSync("system_profiler SPHardwareDataType | grep 'Hardware UUID'", { encoding: "utf8", timeout: 5000 });
+      const m = out.match(/([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})/);
+      return m ? m[1] : "";
+    } else {
+      try { return execSync("cat /etc/machine-id", { encoding: "utf8", timeout: 5000 }).trim(); } catch {}
+      try { return execSync("cat /sys/class/dmi/id/product_uuid", { encoding: "utf8", timeout: 5000 }).trim(); } catch {}
+      return "";
+    }
+  } catch {
+    return "";
+  }
+}
+
+function getMachineFingerprint() {
+  const os = require("os");
+  const nics = os.networkInterfaces();
+  let mac = "";
+  for (const name of Object.keys(nics)) {
+    for (const nic of nics[name]) {
+      if (!nic.internal && nic.mac && nic.mac !== "00:00:00:00:00:00") {
+        mac = nic.mac;
+        break;
+      }
+    }
+    if (mac) break;
+  }
+  const raw = `${getSystemUuid()}:${mac}:${os.hostname()}:${os.cpus()[0]?.model || ""}`;
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+// ============================================================================
+// Anti-tampering: Encrypted Activation Config
+// ============================================================================
+
+const CONFIG_FILE = "activation.dat";
 
 function getConfigPath() {
   return path.join(app.getPath("userData"), CONFIG_FILE);
 }
 
+function deriveKey(fingerprint) {
+  return crypto.pbkdf2Sync(fingerprint + FIXED_SALT, FIXED_SALT, 100000, 32, "sha256");
+}
+
+function encryptConfig(config, fingerprint) {
+  const key = deriveKey(fingerprint);
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  let encrypted = cipher.update(JSON.stringify(config), "utf8", "base64");
+  encrypted += cipher.final("base64");
+  const tag = cipher.getAuthTag();
+  return { v: 1, iv: iv.toString("base64"), tag: tag.toString("base64"), data: encrypted };
+}
+
+function decryptConfig(encryptedData, fingerprint) {
+  const key = deriveKey(fingerprint);
+  const iv = Buffer.from(encryptedData.iv, "base64");
+  const tag = Buffer.from(encryptedData.tag, "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  let decrypted = decipher.update(encryptedData.data, "base64", "utf8");
+  decrypted += decipher.final("utf8");
+  return JSON.parse(decrypted);
+}
+
 function readActivationConfig() {
   try {
-    const config = JSON.parse(fs.readFileSync(getConfigPath(), "utf8"));
+    const fingerprint = getMachineFingerprint();
+    const payload = JSON.parse(fs.readFileSync(getConfigPath(), "utf8"));
+    const config = decryptConfig(payload, fingerprint);
     if (config && !config.machineId) {
       config.machineId = crypto.randomUUID();
       writeActivationConfig(config);
@@ -39,14 +110,30 @@ function readActivationConfig() {
 }
 
 function writeActivationConfig(config) {
+  const fingerprint = getMachineFingerprint();
   fs.mkdirSync(app.getPath("userData"), { recursive: true });
-  fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2));
+  fs.writeFileSync(getConfigPath(), JSON.stringify(encryptConfig(config, fingerprint), null, 2));
 }
 
 function clearActivationConfig() {
   try {
     fs.unlinkSync(getConfigPath());
   } catch {}
+}
+
+// ============================================================================
+// Server Communication
+// ============================================================================
+
+async function getPublicKey(serverUrl) {
+  try {
+    const url = new URL("/api/auth/public-key", serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl);
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
+    const result = await response.json();
+    return result.success ? result.data.key : null;
+  } catch {
+    return null;
+  }
 }
 
 async function verifyActivationOnServer(serverUrl, key, machineId) {
@@ -57,6 +144,32 @@ async function verifyActivationOnServer(serverUrl, key, machineId) {
     body: JSON.stringify({ key, machineId }),
   });
   return response.json();
+}
+
+async function heartbeatActivation(serverUrl, key, machineId) {
+  try {
+    const url = new URL("/api/auth/heartbeat", serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl);
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, machineId }),
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.json();
+  } catch {
+    return { success: false, offline: true };
+  }
+}
+
+function verifyServerSignature(data, signature, publicKey) {
+  try {
+    const verify = crypto.createVerify("SHA256");
+    verify.update(JSON.stringify(data));
+    verify.end();
+    return verify.verify(publicKey, signature, "base64");
+  } catch {
+    return false;
+  }
 }
 
 // ============================================================================
@@ -619,19 +732,86 @@ async function handleActivation(serverUrl, key) {
   const config = readActivationConfig();
   const machineId = config?.machineId || crypto.randomUUID();
   log.info("Activating key", key, "on", serverUrl, "machineId", machineId);
+
+  // Fetch public key first (for signature verification)
+  const publicKey = await getPublicKey(serverUrl);
+  if (!publicKey) {
+    throw new Error("无法获取服务器公钥，请检查网络连接");
+  }
+
   const result = await verifyActivationOnServer(serverUrl, key, machineId);
   if (!result.success) {
     log.error("Activation failed:", result.error);
     throw new Error(result.error?.message || "激活失败，请检查激活码和服务器地址");
   }
+
+  // Verify server signature
+  const { signature, ...signPayload } = result.data;
+  if (!signature || !verifyServerSignature(signPayload, signature, publicKey)) {
+    throw new Error("激活响应签名验证失败，可能存在安全风险");
+  }
+
   writeActivationConfig({
     serverUrl: serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl,
     key,
     keyInfo: result.data,
     machineId,
+    fingerprint: getMachineFingerprint(),
     activatedAt: new Date().toISOString(),
+    lastVerifiedAt: new Date().toISOString(),
+    publicKey,
   });
   return result;
+}
+
+function checkOfflineGrace(config) {
+  const GRACE_DAYS = 7;
+  const GRACE_MS = GRACE_DAYS * 24 * 60 * 60 * 1000;
+  const lastVerified = config.lastVerifiedAt ? new Date(config.lastVerifiedAt) : null;
+  if (lastVerified && Date.now() - lastVerified.getTime() < GRACE_MS) {
+    return { valid: true, offline: true, reason: "OFFLINE_GRACE" };
+  }
+  return { valid: false, reason: "HEARTBEAT_FAILED", message: `离线超过 ${GRACE_DAYS} 天，请联网重新验证激活状态` };
+}
+
+async function validateActivationOnStartup(config) {
+  const fingerprint = getMachineFingerprint();
+
+  // 1. Hardware fingerprint mismatch
+  if (config.fingerprint && config.fingerprint !== fingerprint) {
+    return { valid: false, reason: "MACHINE_MISMATCH", message: "激活文件与当前设备不匹配" };
+  }
+
+  // 2. Verify server signature
+  const publicKey = config.publicKey || await getPublicKey(config.serverUrl);
+  if (!publicKey) {
+    return checkOfflineGrace(config);
+  }
+
+  const signPayload = {
+    key: config.keyInfo.key,
+    type: config.keyInfo.type,
+    expiresAt: config.keyInfo.expiresAt,
+    activatedAt: config.keyInfo.activatedAt,
+    machineId: config.machineId,
+    timestamp: config.keyInfo.timestamp,
+  };
+
+  if (!verifyServerSignature(signPayload, config.keyInfo.signature, publicKey)) {
+    return { valid: false, reason: "INVALID_SIGNATURE", message: "激活签名验证失败，激活文件可能已被篡改" };
+  }
+
+  // 3. Send heartbeat
+  const heartbeat = await heartbeatActivation(config.serverUrl, config.key, config.machineId);
+  if (heartbeat.success) {
+    config.keyInfo = heartbeat.data;
+    config.lastVerifiedAt = new Date().toISOString();
+    writeActivationConfig(config);
+    return { valid: true, offline: false };
+  }
+
+  // Heartbeat failed, check offline grace period
+  return checkOfflineGrace(config);
 }
 
 async function bootstrapWithActivation() {
@@ -642,8 +822,20 @@ async function bootstrapWithActivation() {
     return;
   }
 
-  // Optionally re-verify on every startup (could be rate-limited)
-  // For now, trust local config after initial activation.
+  // Anti-tampering: validate activation on every startup
+  const validation = await validateActivationOnStartup(config);
+  if (!validation.valid) {
+    log.warn("Activation validation failed:", validation.reason);
+    clearActivationConfig();
+    dialog.showErrorBox("激活验证失败", validation.message || "请重新激活");
+    createActivateWindow();
+    return;
+  }
+
+  if (validation.offline) {
+    log.info("Running in offline grace mode");
+  }
+
   await bootstrapDesktopApp();
 }
 

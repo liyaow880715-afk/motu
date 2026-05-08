@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db";
+import { getPublicKey, signData } from "../lib/sign";
 
 const router = Router();
 
@@ -22,6 +23,15 @@ function computeExpiresAt(type: string, activatedAt: Date): Date | null {
   }
   return d;
 }
+
+// GET /api/auth/public-key
+router.get("/public-key", (_req, res) => {
+  try {
+    return res.json(ok({ key: getPublicKey() }));
+  } catch (error: any) {
+    return res.status(500).json(fail("INTERNAL_ERROR", error.message || "服务器内部错误", 500));
+  }
+});
 
 // POST /api/auth/verify
 router.post("/verify", async (req, res) => {
@@ -70,14 +80,67 @@ router.post("/verify", async (req, res) => {
       return res.status(403).json(fail("KEY_EXPIRED", "激活码已过期，请更换新的激活码", 403));
     }
 
-    return res.json(ok({
-      id: accessKey.id,
+    const payload = {
       key: accessKey.key,
       type: accessKey.type,
       label: accessKey.label,
       usedCount: accessKey.usedCount,
       activatedAt: activatedAt?.toISOString() ?? null,
       expiresAt: expiresAt?.toISOString() ?? null,
+      machineId: parsed.machineId || accessKey.machineId || null,
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.json(ok({
+      ...payload,
+      signature: signData(payload),
+    }));
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(fail("VALIDATION_ERROR", error.issues[0]?.message || "参数错误", 400));
+    }
+    return res.status(500).json(fail("INTERNAL_ERROR", error.message || "服务器内部错误", 500));
+  }
+});
+
+// POST /api/auth/heartbeat
+router.post("/heartbeat", async (req, res) => {
+  try {
+    const schema = z.object({
+      key: z.string().min(1, "缺少激活码"),
+      machineId: z.string().optional(),
+    });
+    const parsed = schema.parse(req.body);
+
+    const accessKey = await prisma.accessKey.findUnique({
+      where: { key: parsed.key },
+    });
+
+    if (!accessKey) {
+      return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
+    }
+
+    if (parsed.machineId && accessKey.machineId && accessKey.machineId !== parsed.machineId) {
+      return res.status(403).json(fail("MACHINE_BOUND", "激活码已被其他设备使用", 403));
+    }
+
+    if (accessKey.type !== "PER_USE" && accessKey.expiresAt && new Date() > accessKey.expiresAt) {
+      return res.status(403).json(fail("KEY_EXPIRED", "激活码已过期", 403));
+    }
+
+    const payload = {
+      key: accessKey.key,
+      type: accessKey.type,
+      expiresAt: accessKey.expiresAt?.toISOString() ?? null,
+      activatedAt: accessKey.activatedAt?.toISOString() ?? null,
+      machineId: accessKey.machineId,
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.json(ok({
+      status: "active",
+      ...payload,
+      signature: signData(payload),
     }));
   } catch (error: any) {
     if (error instanceof z.ZodError) {
