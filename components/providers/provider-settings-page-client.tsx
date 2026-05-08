@@ -64,6 +64,10 @@ export default function ProviderSettingsPageClient() {
 
   useEffect(() => {
     setMounted(true);
+    // Desktop: bypass admin gate since it's single-user local app
+    if (typeof window !== "undefined" && (window as any).electronAPI) {
+      setIsAdmin(true);
+    }
   }, []);
 
   useEffect(() => {

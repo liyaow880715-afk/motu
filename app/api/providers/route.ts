@@ -8,7 +8,7 @@ import {
   saveProviderConfig,
 } from "@/lib/services/provider-service";
 import { providerSaveSchema } from "@/lib/validations/provider";
-import { checkAdmin } from "@/lib/utils/admin-check";
+import { checkAdminOrDesktop } from "@/lib/utils/admin-check";
 import { handleRouteError, ok, fail } from "@/lib/utils/route";
 
 const providerActivateSchema = z.object({
@@ -17,7 +17,7 @@ const providerActivateSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    if (!checkAdmin(request)) {
+    if (!checkAdminOrDesktop(request)) {
       return fail("UNAUTHORIZED", "管理员密码错误", null, 403);
     }
     const providers = await getAllProviderConfigs();
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!checkAdmin(request)) {
+    if (!checkAdminOrDesktop(request)) {
       return fail("UNAUTHORIZED", "管理员密码错误", null, 403);
     }
     const parsed = providerSaveSchema.parse(await request.json());
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    if (!checkAdmin(request)) {
+    if (!checkAdminOrDesktop(request)) {
       return fail("UNAUTHORIZED", "管理员密码错误", null, 403);
     }
     const parsed = providerActivateSchema.parse(await request.json());

@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 
 import { discoverProviderModels, resolveProviderConnectionInput } from "@/lib/services/provider-service";
 import { providerInputSchema } from "@/lib/validations/provider";
-import { checkAdmin } from "@/lib/utils/admin-check";
+import { checkAdminOrDesktop } from "@/lib/utils/admin-check";
 import { handleRouteError, ok, fail } from "@/lib/utils/route";
 
 export async function POST(request: NextRequest) {
   try {
-    if (!checkAdmin(request)) {
+    if (!checkAdminOrDesktop(request)) {
       return fail("UNAUTHORIZED", "管理员密码错误", null, 403);
     }
     const parsed = providerInputSchema.parse(await request.json());
