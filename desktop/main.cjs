@@ -816,7 +816,19 @@ async function validateActivationOnStartup(config) {
     return { valid: false, reason: "MACHINE_MISMATCH", message: "激活文件与当前设备不匹配" };
   }
 
-  // 2. Verify server signature
+  // 2. Backward compatibility: legacy config without signature → just heartbeat
+  if (!config.keyInfo?.signature) {
+    const heartbeat = await heartbeatActivation(config.serverUrl, config.key, config.machineId);
+    if (heartbeat.success) {
+      config.keyInfo = heartbeat.data;
+      config.lastVerifiedAt = new Date().toISOString();
+      writeActivationConfig(config);
+      return { valid: true, offline: false };
+    }
+    return checkOfflineGrace(config);
+  }
+
+  // 3. Verify server signature
   const publicKey = config.publicKey || await getPublicKey(config.serverUrl);
   if (!publicKey) {
     return checkOfflineGrace(config);
@@ -832,10 +844,15 @@ async function validateActivationOnStartup(config) {
   };
 
   if (!verifyServerSignature(signPayload, config.keyInfo.signature, publicKey)) {
+    // Distinguish key rotation from tampering
+    const currentPublicKey = await getPublicKey(config.serverUrl);
+    if (currentPublicKey && currentPublicKey !== config.publicKey) {
+      return { valid: false, reason: "KEY_ROTATION", message: "服务器密钥已更新，请重新激活" };
+    }
     return { valid: false, reason: "INVALID_SIGNATURE", message: "激活签名验证失败，激活文件可能已被篡改" };
   }
 
-  // 3. Send heartbeat
+  // 4. Send heartbeat
   const heartbeat = await heartbeatActivation(config.serverUrl, config.key, config.machineId);
   if (heartbeat.success) {
     config.keyInfo = heartbeat.data;
