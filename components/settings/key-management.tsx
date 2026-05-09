@@ -16,6 +16,7 @@ interface AccessKeyItem {
   id: string;
   key: string;
   type: "PER_USE" | "DAILY" | "MONTHLY";
+  platform: "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH";
   label: string | null;
   usedCount: number;
   activatedAt: string | null;
@@ -40,6 +41,7 @@ export function KeyManagement() {
   });
   const [statsLoading, setStatsLoading] = useState(false);
   const [newType, setNewType] = useState<"PER_USE" | "DAILY" | "MONTHLY">("PER_USE");
+  const [newPlatform, setNewPlatform] = useState<"DESKTOP_ONLY" | "WEB_ONLY" | "BOTH">("BOTH");
   const [newCount, setNewCount] = useState(1);
   const [newLabel, setNewLabel] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -127,6 +129,7 @@ export function KeyManagement() {
         },
         body: JSON.stringify({
           type: newType,
+          platform: newPlatform,
           count: newCount,
           label: newLabel || undefined,
         }),
@@ -189,6 +192,19 @@ export function KeyManagement() {
         return <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20">月卡</Badge>;
       default:
         return <Badge>{type}</Badge>;
+    }
+  };
+
+  const platformBadge = (platform: string) => {
+    switch (platform) {
+      case "DESKTOP_ONLY":
+        return <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/20">客户端</Badge>;
+      case "WEB_ONLY":
+        return <Badge className="bg-cyan-500/15 text-cyan-400 border-cyan-500/20">网页端</Badge>;
+      case "BOTH":
+        return <Badge className="bg-slate-500/15 text-slate-400 border-slate-500/20">通用</Badge>;
+      default:
+        return <Badge>{platform}</Badge>;
     }
   };
 
@@ -299,7 +315,7 @@ export function KeyManagement() {
       <Card>
         <CardContent className="p-6 space-y-4">
           <h3 className="text-sm font-medium">生成新激活码</h3>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
             <div className="space-y-2">
               <Label className="text-xs">类型</Label>
               <select
@@ -310,6 +326,18 @@ export function KeyManagement() {
                 <option value="PER_USE">次卡</option>
                 <option value="DAILY">日卡</option>
                 <option value="MONTHLY">月卡</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">适用平台</Label>
+              <select
+                value={newPlatform}
+                onChange={(e) => setNewPlatform(e.target.value as "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH")}
+                className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                <option value="BOTH">通用</option>
+                <option value="DESKTOP_ONLY">仅客户端</option>
+                <option value="WEB_ONLY">仅网页端</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -367,6 +395,7 @@ export function KeyManagement() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono">{k.key}</code>
                       {typeBadge(k.type)}
+                      {platformBadge(k.platform)}
                       {statusBadge(k)}
                       {k.label && <span className="text-xs text-muted-foreground">{k.label}</span>}
                     </div>

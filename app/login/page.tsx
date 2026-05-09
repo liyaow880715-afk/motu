@@ -24,10 +24,11 @@ export default function LoginPage() {
 
     setVerifying(true);
     try {
+      const platform = typeof window !== "undefined" && (window as any).electronAPI ? "desktop" : "web";
       const res = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key, platform }),
       });
       const data = await res.json();
 

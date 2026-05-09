@@ -8,7 +8,20 @@ import { remoteVerify } from "@/lib/services/remote-auth";
 const verifySchema = z.object({
   key: z.string().min(1, "请输入激活码"),
   machineId: z.string().optional(),
+  platform: z.string().optional(),
 });
+
+function checkPlatform(keyPlatform: string, clientPlatform?: string | null): string | null {
+  if (keyPlatform === "BOTH") return null;
+  const client = clientPlatform?.toLowerCase();
+  if (keyPlatform === "DESKTOP_ONLY" && client !== "desktop") {
+    return "该激活码仅限客户端使用";
+  }
+  if (keyPlatform === "WEB_ONLY" && client !== "web") {
+    return "该激活码仅限网页端使用";
+  }
+  return null;
+}
 
 function computeExpiresAt(type: string, activatedAt: Date): Date | null {
   if (type === "PER_USE") return null;
@@ -21,13 +34,18 @@ function computeExpiresAt(type: string, activatedAt: Date): Date | null {
   return d;
 }
 
-async function localVerify(key: string, machineId?: string | null) {
+async function localVerify(key: string, machineId?: string | null, platform?: string | null) {
   const accessKey = await prisma.accessKey.findUnique({
     where: { key },
   });
 
   if (!accessKey) {
     return fail("INVALID_KEY", "激活码不存在", null, 401);
+  }
+
+  const platformError = checkPlatform(accessKey.platform, platform);
+  if (platformError) {
+    return fail("PLATFORM_MISMATCH", platformError, null, 403);
   }
 
   if (machineId && accessKey.machineId && accessKey.machineId !== machineId) {
@@ -60,6 +78,7 @@ async function localVerify(key: string, machineId?: string | null) {
     id: accessKey.id,
     key: accessKey.key,
     type: accessKey.type,
+    platform: accessKey.platform,
     label: accessKey.label,
     usedCount: accessKey.usedCount,
     activatedAt: activatedAt?.toISOString() ?? null,
@@ -73,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // If remote auth server is configured, forward the request
     if (env.AUTH_SERVER_URL) {
-      const remoteRes = await remoteVerify(parsed.key, parsed.machineId);
+      const remoteRes = await remoteVerify(parsed.key, parsed.machineId, parsed.platform);
       if (!remoteRes.success) {
         return fail(
           remoteRes.error!.code,
@@ -86,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Otherwise use local database
-    return await localVerify(parsed.key, parsed.machineId);
+    return await localVerify(parsed.key, parsed.machineId, parsed.platform);
   } catch (error) {
     return handleRouteError(error);
   }

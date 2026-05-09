@@ -82,7 +82,7 @@
       padding: 14px 20px; border-bottom: 1px solid var(--border);
     }
     .panel-body { padding: 16px 20px; }
-    .form-row { display: grid; grid-template-columns: 1fr 100px 1fr auto; gap: 10px; align-items: end; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr 80px 1fr auto; gap: 10px; align-items: end; }
     @media (max-width: 640px) {
       .form-row { grid-template-columns: 1fr; }
     }
@@ -97,6 +97,9 @@
     .badge-peruse { background: rgba(52,211,153,0.15); color: #34d399; }
     .badge-daily { background: rgba(56,189,248,0.15); color: #38bdf8; }
     .badge-monthly { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .badge-desktop { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .badge-web { background: rgba(34,211,238,0.15); color: #22d3ee; }
+    .badge-both { background: rgba(148,163,184,0.15); color: #94a3b8; }
     .badge-active { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
     .badge-expired { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
     .badge-unused { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
@@ -224,6 +227,14 @@
                   </select>
                 </div>
                 <div>
+                  <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">适用平台</label>
+                  <select id="newPlatform">
+                    <option value="BOTH">通用</option>
+                    <option value="DESKTOP_ONLY">仅客户端</option>
+                    <option value="WEB_ONLY">仅网页端</option>
+                  </select>
+                </div>
+                <div>
                   <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">数量</label>
                   <input type="number" id="newCount" min="1" max="100" value="1">
                 </div>
@@ -296,6 +307,10 @@
                           k.type === 'DAILY' ? '<span class="badge badge-daily">日卡</span>' :
                           '<span class="badge badge-monthly">月卡</span>';
 
+        const platformBadge = k.platform === 'DESKTOP_ONLY' ? '<span class="badge badge-desktop">客户端</span>' :
+                              k.platform === 'WEB_ONLY' ? '<span class="badge badge-web">网页端</span>' :
+                              '<span class="badge badge-both">通用</span>';
+
         const timeInfo = k.activatedAt
           ? `激活于 ${new Date(k.activatedAt).toLocaleString('zh-CN')}${k.expiresAt ? ' · 过期于 ' + new Date(k.expiresAt).toLocaleString('zh-CN') : ''}`
           : `创建于 ${new Date(k.createdAt).toLocaleString('zh-CN')} · 未激活`;
@@ -305,6 +320,7 @@
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <span class="key-code">${k.key}</span>
               ${typeBadge}
+              ${platformBadge}
               ${statusBadge}
               ${k.label ? `<span style="font-size:11px;color:var(--muted)">${k.label}</span>` : ''}
             </div>
@@ -330,12 +346,13 @@
 
     async function createKeys() {
       const type = el('newType').value;
+      const platform = el('newPlatform').value;
       const count = parseInt(el('newCount').value, 10) || 1;
       const label = el('newLabel').value.trim();
       el('createBtn').disabled = true;
       const data = await api('/api/keys', {
         method: 'POST',
-        body: JSON.stringify({ type, count, label: label || undefined }),
+        body: JSON.stringify({ type, platform, count, label: label || undefined }),
       });
       el('createBtn').disabled = false;
       if (data.success) {
@@ -391,7 +408,7 @@
     function exportKeys() {
       const keys = window.__currentKeys || [];
       if (keys.length === 0) { showToast('没有可导出的激活码', 'error'); return; }
-      const header = '激活码,类型,状态,备注,创建时间,激活时间,过期时间,已使用次数\n';
+      const header = '激活码,类型,适用平台,状态,备注,创建时间,激活时间,过期时间,已使用次数\n';
       const rows = keys.map(k => {
         const status = k.expiresAt && new Date() > new Date(k.expiresAt) ? '已过期' :
                        k.type === 'PER_USE' && k.usedCount >= 1 ? '已用完' :
@@ -399,6 +416,7 @@
         return [
           k.key,
           k.type === 'PER_USE' ? '次卡' : k.type === 'DAILY' ? '日卡' : '月卡',
+          k.platform === 'DESKTOP_ONLY' ? '客户端' : k.platform === 'WEB_ONLY' ? '网页端' : '通用',
           status,
           k.label || '',
           k.createdAt ? new Date(k.createdAt).toLocaleString('zh-CN') : '',

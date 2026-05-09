@@ -33,12 +33,25 @@ router.get("/public-key", (_req, res) => {
   }
 });
 
+function checkPlatform(keyPlatform: string, clientPlatform?: string): string | null {
+  if (keyPlatform === "BOTH") return null;
+  const client = clientPlatform?.toLowerCase();
+  if (keyPlatform === "DESKTOP_ONLY" && client !== "desktop") {
+    return "该激活码仅限客户端使用";
+  }
+  if (keyPlatform === "WEB_ONLY" && client !== "web") {
+    return "该激活码仅限网页端使用";
+  }
+  return null;
+}
+
 // POST /api/auth/verify
 router.post("/verify", async (req, res) => {
   try {
     const schema = z.object({
       key: z.string().min(1, "请输入激活码"),
       machineId: z.string().optional(),
+      platform: z.string().optional(),
     });
     const parsed = schema.parse(req.body);
 
@@ -48,6 +61,12 @@ router.post("/verify", async (req, res) => {
 
     if (!accessKey) {
       return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
+    }
+
+    // Platform check
+    const platformError = checkPlatform(accessKey.platform, parsed.platform);
+    if (platformError) {
+      return res.status(403).json(fail("PLATFORM_MISMATCH", platformError, 403));
     }
 
     // Machine binding check
@@ -83,6 +102,7 @@ router.post("/verify", async (req, res) => {
     const payload = {
       key: accessKey.key,
       type: accessKey.type,
+      platform: accessKey.platform,
       label: accessKey.label,
       usedCount: accessKey.usedCount,
       activatedAt: activatedAt?.toISOString() ?? null,
@@ -109,6 +129,7 @@ router.post("/heartbeat", async (req, res) => {
     const schema = z.object({
       key: z.string().min(1, "缺少激活码"),
       machineId: z.string().optional(),
+      platform: z.string().optional(),
     });
     const parsed = schema.parse(req.body);
 
@@ -118,6 +139,11 @@ router.post("/heartbeat", async (req, res) => {
 
     if (!accessKey) {
       return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
+    }
+
+    const platformError = checkPlatform(accessKey.platform, parsed.platform);
+    if (platformError) {
+      return res.status(403).json(fail("PLATFORM_MISMATCH", platformError, 403));
     }
 
     if (parsed.machineId && accessKey.machineId && accessKey.machineId !== parsed.machineId) {
@@ -131,6 +157,7 @@ router.post("/heartbeat", async (req, res) => {
     const payload = {
       key: accessKey.key,
       type: accessKey.type,
+      platform: accessKey.platform,
       expiresAt: accessKey.expiresAt?.toISOString() ?? null,
       activatedAt: accessKey.activatedAt?.toISOString() ?? null,
       machineId: accessKey.machineId,
@@ -155,6 +182,7 @@ router.get("/me", async (req, res) => {
   try {
     const key = req.query.key as string;
     const machineId = req.query.machineId as string | undefined;
+    const platform = req.query.platform as string | undefined;
     if (!key) {
       return res.status(401).json(fail("MISSING_KEY", "缺少激活码", 401));
     }
@@ -165,6 +193,11 @@ router.get("/me", async (req, res) => {
 
     if (!accessKey) {
       return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
+    }
+
+    const platformError = checkPlatform(accessKey.platform, platform);
+    if (platformError) {
+      return res.status(403).json(fail("PLATFORM_MISMATCH", platformError, 403));
     }
 
     if (accessKey.type !== "PER_USE" && accessKey.expiresAt && new Date() > accessKey.expiresAt) {
@@ -179,6 +212,7 @@ router.get("/me", async (req, res) => {
       id: accessKey.id,
       key: accessKey.key,
       type: accessKey.type,
+      platform: accessKey.platform,
       label: accessKey.label,
       usedCount: accessKey.usedCount,
       activatedAt: accessKey.activatedAt?.toISOString() ?? null,
@@ -192,7 +226,7 @@ router.get("/me", async (req, res) => {
 // POST /api/auth/consume
 router.post("/consume", async (req, res) => {
   try {
-    const schema = z.object({ key: z.string().min(1), machineId: z.string().optional() });
+    const schema = z.object({ key: z.string().min(1), machineId: z.string().optional(), platform: z.string().optional() });
     const parsed = schema.parse(req.body);
 
     const accessKey = await prisma.accessKey.findUnique({
@@ -201,6 +235,11 @@ router.post("/consume", async (req, res) => {
 
     if (!accessKey) {
       return res.status(401).json(fail("INVALID_KEY", "激活码不存在", 401));
+    }
+
+    const platformError = checkPlatform(accessKey.platform, parsed.platform);
+    if (platformError) {
+      return res.status(403).json(fail("PLATFORM_MISMATCH", platformError, 403));
     }
 
     if (parsed.machineId && accessKey.machineId && accessKey.machineId !== parsed.machineId) {
@@ -228,6 +267,7 @@ router.post("/consume", async (req, res) => {
       id: updated.id,
       key: updated.key,
       type: updated.type,
+      platform: updated.platform,
       usedCount: updated.usedCount,
       activatedAt: updated.activatedAt?.toISOString() ?? null,
       expiresAt: updated.expiresAt?.toISOString() ?? null,

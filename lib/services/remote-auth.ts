@@ -17,6 +17,7 @@ export interface KeyInfo {
   id: string;
   key: string;
   type: "PER_USE" | "DAILY" | "MONTHLY";
+  platform: "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH";
   label: string | null;
   usedCount: number;
   activatedAt: string | null;
@@ -46,23 +47,24 @@ export function isRemoteAuthEnabled(): boolean {
   return !!AUTH_SERVER_URL;
 }
 
-export async function remoteVerify(key: string, machineId?: string | null): Promise<ApiResponse<KeyInfo>> {
+export async function remoteVerify(key: string, machineId?: string | null, platform?: string | null): Promise<ApiResponse<KeyInfo>> {
   return fetchRemote<KeyInfo>("/api/auth/verify", {
     method: "POST",
-    body: JSON.stringify({ key, machineId }),
+    body: JSON.stringify({ key, machineId, platform }),
   });
 }
 
-export async function remoteGetMe(key: string, machineId?: string | null): Promise<ApiResponse<KeyInfo>> {
+export async function remoteGetMe(key: string, machineId?: string | null, platform?: string | null): Promise<ApiResponse<KeyInfo>> {
   const qs = new URLSearchParams({ key });
   if (machineId) qs.append("machineId", machineId);
+  if (platform) qs.append("platform", platform);
   return fetchRemote<KeyInfo>(`/api/auth/me?${qs.toString()}`);
 }
 
-export async function remoteConsume(key: string, machineId?: string | null): Promise<ApiResponse<KeyInfo>> {
+export async function remoteConsume(key: string, machineId?: string | null, platform?: string | null): Promise<ApiResponse<KeyInfo>> {
   return fetchRemote<KeyInfo>("/api/auth/consume", {
     method: "POST",
-    body: JSON.stringify({ key, machineId }),
+    body: JSON.stringify({ key, machineId, platform }),
   });
 }
 
@@ -75,7 +77,7 @@ export async function remoteListKeys(adminSecret: string): Promise<ApiResponse<K
 
 export async function remoteCreateKeys(
   adminSecret: string,
-  params: { type: "PER_USE" | "DAILY" | "MONTHLY"; count: number; label?: string }
+  params: { type: "PER_USE" | "DAILY" | "MONTHLY"; platform?: "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH"; count: number; label?: string }
 ): Promise<ApiResponse<KeyInfo[]>> {
   return fetchRemote<KeyInfo[]>("/api/keys", {
     method: "POST",

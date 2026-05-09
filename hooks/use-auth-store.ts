@@ -3,11 +3,13 @@
 import { create } from "zustand";
 
 export type KeyType = "PER_USE" | "DAILY" | "MONTHLY";
+export type KeyPlatform = "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH";
 
 export interface KeyInfo {
   id: string;
   key: string;
   type: KeyType;
+  platform: KeyPlatform;
   label: string | null;
   usedCount: number;
   activatedAt: string | null;
@@ -89,7 +91,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const res = await fetch(`/api/auth/me?key=${encodeURIComponent(storedKey)}`);
+      const platform = typeof window !== "undefined" && (window as any).electronAPI ? "desktop" : "web";
+      const res = await fetch(`/api/auth/me?key=${encodeURIComponent(storedKey)}&platform=${platform}`);
       const data = await res.json();
 
       if (data.success) {

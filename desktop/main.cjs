@@ -141,7 +141,7 @@ async function verifyActivationOnServer(serverUrl, key, machineId) {
   const response = await fetch(url.toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, machineId }),
+    body: JSON.stringify({ key, machineId, platform: "desktop" }),
   });
   return response.json();
 }
@@ -152,7 +152,7 @@ async function heartbeatActivation(serverUrl, key, machineId) {
     const response = await fetch(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, machineId }),
+      body: JSON.stringify({ key, machineId, platform: "desktop" }),
       signal: AbortSignal.timeout(10000),
     });
     return response.json();

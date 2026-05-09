@@ -11,6 +11,7 @@ import {
 
 const createSchema = z.object({
   type: z.enum(["PER_USE", "DAILY", "MONTHLY"]),
+  platform: z.enum(["DESKTOP_ONLY", "WEB_ONLY", "BOTH"]).default("BOTH"),
   count: z.number().int().min(1).max(100).default(1),
   label: z.string().optional(),
 });
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
         id: k.id,
         key: k.key,
         type: k.type,
+        platform: k.platform,
         label: k.label,
         usedCount: k.usedCount,
         activatedAt: k.activatedAt?.toISOString() ?? null,
@@ -98,6 +100,7 @@ export async function POST(request: NextRequest) {
       id: string;
       key: string;
       type: string;
+      platform: string;
       label: string | null;
       createdAt: Date;
     }> = [];
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
         data: {
           key: generateKey(),
           type: parsed.type,
+          platform: parsed.platform,
           label: parsed.label || null,
         },
       });
@@ -118,6 +122,7 @@ export async function POST(request: NextRequest) {
         id: k.id,
         key: k.key,
         type: k.type,
+        platform: k.platform,
         label: k.label,
         createdAt: k.createdAt.toISOString(),
       }))
