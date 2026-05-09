@@ -70,8 +70,13 @@ backup_dir="${DeployPath}.bak.$(date +%Y%m%d_%H%M%S)"
 cp -r $DeployPath "\$backup_dir" 2>/dev/null || true
 ls -dt ${DeployPath}.bak.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
 
+# 保护 .env 关键配置：解压前备份
+if [ -f $DeployPath/.env ]; then
+    cp $DeployPath/.env /tmp/.env.bak
+fi
+
 # 解压新代码
-rm -rf node_modules/.package-lock.json 2>/dev/null || true
+rm -rf $DeployPath/node_modules/.package-lock.json 2>/dev/null || true
 cd /tmp
 unzip -o -q $deployZip -d $DeployPath
 
@@ -80,8 +85,19 @@ cd $DeployPath
 rm -rf node_modules/sharp
 npm install --os=linux --cpu=x64 sharp --silent
 
-# 确保 AUTH_SERVER_URL 配置
-if ! grep -q "AUTH_SERVER_URL" .env; then
+# 恢复服务器端 .env 中的关键配置（防止被本地 .env 覆盖）
+if [ -f /tmp/.env.bak ]; then
+    for key in AUTH_SERVER_URL APP_SECRET DATABASE_URL STORAGE_ROOT ADMIN_SECRET; do
+        if grep -q "^`$key=" /tmp/.env.bak 2>/dev/null && ! grep -q "^`$key=" .env 2>/dev/null; then
+            grep "^`$key=" /tmp/.env.bak >> .env
+            echo "已恢复 .env 配置: `$key"
+        fi
+    done
+    rm -f /tmp/.env.bak
+fi
+
+# 确保 AUTH_SERVER_URL 配置（首次部署时）
+if ! grep -q "^AUTH_SERVER_URL=" .env 2>/dev/null; then
     echo "AUTH_SERVER_URL=$AuthServerUrl" >> .env
     echo "已添加 AUTH_SERVER_URL=$AuthServerUrl"
 fi
