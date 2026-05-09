@@ -51,6 +51,7 @@ export default function HeroBatchPage() {
   const [progress, setProgress] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const [results, setResults] = useState<Array<{ index: number; style: string; imageUrl: string; loading: boolean; error?: string }>>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   const handleAnalyzeImage = useCallback(async () => {
     if (productImages.length === 0) {
@@ -89,8 +90,7 @@ export default function HeroBatchPage() {
     }
   }, [productImages]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const readFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const newImages: string[] = [];
     let loaded = 0;
@@ -105,6 +105,26 @@ export default function HeroBatchPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    readFiles(e.target.files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    readFiles(e.dataTransfer.files);
   };
 
   const removeImage = (idx: number) => {
@@ -216,7 +236,12 @@ export default function HeroBatchPage() {
               {/* Upload */}
               <div className="space-y-2">
                 <Label>商品图片（支持多张）</Label>
-                <div className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:bg-muted/50 transition-colors">
+                <div
+                  className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
                   <input type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" id="product-upload" />
                   <label htmlFor="product-upload" className="cursor-pointer">
                     {productImages.length > 0 ? (

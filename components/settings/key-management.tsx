@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/page-header";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface AccessKeyItem {
   id: string;
@@ -41,6 +42,8 @@ export function KeyManagement() {
   const [newType, setNewType] = useState<"PER_USE" | "DAILY" | "MONTHLY">("PER_USE");
   const [newCount, setNewCount] = useState(1);
   const [newLabel, setNewLabel] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchKeys = useCallback(async () => {
     if (!isAdmin) return;
@@ -145,9 +148,14 @@ export function KeyManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定删除这个激活码？")) return;
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/keys/${id}`, {
+      const res = await fetch(`/api/keys/${pendingDeleteId}`, {
         method: "DELETE",
         headers: { "x-admin-secret": adminSecret },
       });
@@ -160,6 +168,9 @@ export function KeyManagement() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   };
 
@@ -377,7 +388,7 @@ export function KeyManagement() {
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleCopy(k.key)}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-500" onClick={() => handleDelete(k.id)}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-500" onClick={() => handleDelete(k.id)} title="删除">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -387,6 +398,19 @@ export function KeyManagement() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteId)}
+        title="删除激活码"
+        description="此操作不可恢复，激活码删除后将无法使用。"
+        confirmText="确认删除"
+        cancelText="取消"
+        destructive
+        loading={deleting}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

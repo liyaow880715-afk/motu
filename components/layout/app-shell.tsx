@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FolderKanban, GalleryVerticalEnd, History, Images, KeyRound, LayoutTemplate, LogOut, Settings2 } from "lucide-react";
+import { useState } from "react";
+import { FolderKanban, GalleryVerticalEnd, History, Images, KeyRound, LayoutTemplate, LogOut, Menu, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { ApiUsageIndicator } from "@/components/layout/api-usage-indicator";
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { keyInfo, clearKey } = useAuthStore();
   const { brandName, companyName, version } = useBrandStore();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = () => {
     clearKey();
@@ -43,12 +45,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   };
 
+  const navLinkClass =
+    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-all duration-200 text-slate-600 hover:bg-white/85 hover:text-slate-950 hover:shadow-sm dark:text-slate-300 dark:hover:bg-white/8 dark:hover:text-white";
+
   return (
     <div className="relative z-10 min-h-screen text-slate-900 dark:text-slate-100">
       <div className="fixed bottom-4 left-4 z-[60]">
         <FloatingThemeToggle />
       </div>
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-5 md:px-6">
+        {/* Mobile overlay */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+
+        {/* Mobile drawer */}
+        <aside
+          className={cn(
+            "fixed inset-y-4 left-4 z-[80] w-72 rounded-[2rem] border border-white/70 bg-white/95 p-5 shadow-soft backdrop-blur-2xl transition-transform duration-300 dark:border-white/10 dark:bg-[#0b0b0c]/95 dark:shadow-[0_24px_60px_-38px_rgba(0,0,0,0.72)] md:hidden",
+            mobileOpen ? "translate-x-0" : "-translate-x-[120%]",
+          )}
+        >
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/10 bg-black text-sm font-semibold text-white dark:border-white/10 dark:bg-white dark:text-black">
+                M
+              </div>
+              <span className="text-base font-semibold text-slate-950 dark:text-white">{brandName}</span>
+            </Link>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMobileOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <nav className="mt-6 space-y-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href} className={navLinkClass} onClick={() => setMobileOpen(false)}>
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="mt-auto space-y-3 pt-6">
+            {keyInfo && (
+              <div className="rounded-[1.25rem] border border-white/80 bg-white/68 p-4 dark:border-white/10 dark:bg-[#141416]/88">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <KeyTypeBadge type={keyInfo.type} />
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleLogout} title="登出">
+                    <LogOut className="h-3.5 w-3.5 text-slate-400" />
+                  </Button>
+                </div>
+                <code className="mt-1 block truncate text-[10px] text-slate-500 font-mono">{keyInfo.key}</code>
+              </div>
+            )}
+            <p className="text-xs text-slate-400">{companyName} · v{version}</p>
+          </div>
+        </aside>
+
+        {/* Desktop sidebar */}
         <aside className="hidden w-72 shrink-0 rounded-[2rem] border border-white/70 bg-white/76 p-5 shadow-soft backdrop-blur-2xl dark:border-white/10 dark:bg-[#0b0b0c]/88 dark:shadow-[0_24px_60px_-38px_rgba(0,0,0,0.72)] md:flex md:flex-col">
           <Link
             href="/"
@@ -142,21 +203,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <main className="flex-1 rounded-[2rem] border border-white/80 bg-white/74 p-5 shadow-soft backdrop-blur-2xl dark:border-white/10 dark:bg-[#0f0f10]/82 dark:shadow-[0_24px_60px_-38px_rgba(0,0,0,0.78)] md:p-8">
-          <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
-            <Link
-              href="/monitor/usage"
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-10 gap-2 rounded-2xl border-slate-200 bg-white px-3 shadow-sm hover:bg-white dark:border-white/10 dark:bg-black/30 dark:hover:border-white/20 dark:hover:bg-white/8",
-              )}
-            >
-              <span className="text-sm font-medium">API 监控</span>
-              <ApiUsageIndicator />
-            </Link>
-            <Link href="/settings/providers" className={cn(buttonVariants({ variant: "default" }))}>
-              <Settings2 className="mr-2 h-4 w-4" />
-              AI 配置
-            </Link>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <Button variant="outline" size="sm" className="h-10 w-10 rounded-2xl p-0 md:hidden" onClick={() => setMobileOpen(true)}>
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/monitor/usage"
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-10 gap-2 rounded-2xl border-slate-200 bg-white px-3 shadow-sm hover:bg-white dark:border-white/10 dark:bg-black/30 dark:hover:border-white/20 dark:hover:bg-white/8",
+                )}
+              >
+                <span className="text-sm font-medium">API 监控</span>
+                <ApiUsageIndicator />
+              </Link>
+              <Link href="/settings/providers" className={cn(buttonVariants({ variant: "default" }))}>
+                <Settings2 className="mr-2 h-4 w-4" />
+                AI 配置
+              </Link>
+            </div>
           </div>
           {children}
         </main>

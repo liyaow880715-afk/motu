@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Loader2, Sparkles, Star, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Clock, Loader2, Sparkles, Star, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { NoticeCard } from "@/components/shared/notice-card";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,10 @@ export function AnalysisWorkspace({
   const [uploadType, setUploadType] = useState<string>("REFERENCE");
   const autoStartedRef = useRef(false);
   const analysisInFlightRef = useRef(false);
+  const [nutritionExpanded, setNutritionExpanded] = useState(true);
+  const [analysisResultExpanded, setAnalysisResultExpanded] = useState(true);
+  const [pendingDeleteAssetId, setPendingDeleteAssetId] = useState<string | null>(null);
+  const [deletingAsset, setDeletingAsset] = useState(false);
 
   const refreshProject = async () => {
     const response = await fetch(`/api/projects/${project.id}`);
@@ -137,6 +142,19 @@ export function AnalysisWorkspace({
   }, [initialNotice]);
 
   useEffect(() => {
+    const isBusy = running || saving || savingProject || uploading;
+    if (!isBusy) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [running, saving, savingProject, uploading]);
+
+
+
+  useEffect(() => {
     if (!autoRunOnLoad || autoStartedRef.current || analysis || running) {
       return;
     }
@@ -176,14 +194,26 @@ export function AnalysisWorkspace({
   };
 
   const deleteAsset = async (assetId: string) => {
-    const response = await fetch(`/api/assets/${assetId}`, { method: "DELETE" });
-    const payload = await response.json();
-    if (!payload.success) {
-      toast.error(payload.error?.message ?? "素材删除失败");
-      return;
+    setPendingDeleteAssetId(assetId);
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!pendingDeleteAssetId) return;
+    setDeletingAsset(true);
+    try {
+      const response = await fetch(`/api/assets/${pendingDeleteAssetId}`, { method: "DELETE" });
+      const payload = await response.json();
+      if (!payload.success) {
+        throw new Error(payload.error?.message ?? "素材删除失败");
+      }
+      toast.success("素材已删除");
+      await refreshProject();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "素材删除失败");
+    } finally {
+      setDeletingAsset(false);
+      setPendingDeleteAssetId(null);
     }
-    toast.success("素材已删除");
-    await refreshProject();
   };
 
   const setMainAsset = async (assetId: string) => {
@@ -218,6 +248,21 @@ export function AnalysisWorkspace({
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        if (analysis) {
+          void saveAnalysis();
+        } else {
+          void saveProjectMeta();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [analysis]);
 
   return (
     <div className="space-y-6">
@@ -269,10 +314,12 @@ export function AnalysisWorkspace({
             </div>
           </div>
 
-          <Button onClick={saveProjectMeta} disabled={savingProject}>
-            {savingProject ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            保存项目信息
-          </Button>
+          <div className="flex justify-end">
+            <Button onClick={saveProjectMeta} disabled={savingProject}>
+              {savingProject ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              保存项目信息
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -351,7 +398,7 @@ export function AnalysisWorkspace({
                     </div>
                     <p className="truncate text-xs text-muted-foreground">{asset.fileName}</p>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => reorderAsset(asset.id, -1)} disabled={index === 0}>
+                      <Button variant="ghost" size="sm" onClick={() => reorderAsset(asset.id, -1)} disabled={index === 0} title="上移">
                         <ArrowUp className="h-4 w-4" />
                       </Button>
                       <Button
@@ -359,15 +406,16 @@ export function AnalysisWorkspace({
                         size="sm"
                         onClick={() => reorderAsset(asset.id, 1)}
                         disabled={index === projectState.assets.length - 1}
+                        title="下移"
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>
                       {!asset.isMain ? (
-                        <Button variant="ghost" size="sm" onClick={() => setMainAsset(asset.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => setMainAsset(asset.id)} title="设为主图">
                           <Star className="h-4 w-4" />
                         </Button>
                       ) : null}
-                      <Button variant="ghost" size="sm" onClick={() => deleteAsset(asset.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => deleteAsset(asset.id)} title="删除">
                         <Trash2 className="h-4 w-4 text-rose-500" />
                       </Button>
                     </div>
@@ -375,10 +423,16 @@ export function AnalysisWorkspace({
                 </div>
               ))}
             </div>
-            <Button onClick={() => void runAnalysis()} disabled={running} className="w-full">
-              {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              重新运行 AI 商品分析
-            </Button>
+            <div className="space-y-2">
+              <Button onClick={() => void runAnalysis()} disabled={running} className="w-full">
+                {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                重新运行 AI 商品分析
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                <Clock className="inline-block mr-1 h-3 w-3" />
+                预计分析时长 1-2 分钟，请耐心等待
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -455,87 +509,113 @@ export function AnalysisWorkspace({
                   const nrvKeys = ["能量NRV%", "蛋白质NRV%", "脂肪NRV%", "碳水NRV%", "钠NRV%"];
                   return (
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Label>营养成分数据（精确值）</Label>
-                        <Badge variant="outline" className="text-xs">可控制生图内容</Badge>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">每 100g 含量</Label>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {contentKeys.map((key) => (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{key}</Label>
-                              <Input
-                                value={nutritionFacts[key] ?? ""}
-                                placeholder="如：约 XXX /100g"
-                                onChange={(event) => {
-                                  const next = { ...nutritionFacts, [key]: event.target.value };
-                                  updateField("nutritionFacts", next);
-                                }}
-                              />
-                            </div>
-                          ))}
+                      <button
+                        type="button"
+                        onClick={() => setNutritionExpanded((v) => !v)}
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left transition-colors hover:bg-muted/60"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Label className="cursor-pointer">营养成分数据（精确值）</Label>
+                          <Badge variant="outline" className="text-xs">可控制生图内容</Badge>
                         </div>
-                      </div>
+                        {nutritionExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </button>
 
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">NRV%（营养素参考值百分比）</Label>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {nrvKeys.map((key) => (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{key}</Label>
-                              <Input
-                                value={nutritionFacts[key] ?? ""}
-                                placeholder="如：12%"
-                                onChange={(event) => {
-                                  const next = { ...nutritionFacts, [key]: event.target.value };
-                                  updateField("nutritionFacts", next);
-                                }}
-                              />
+                      {nutritionExpanded ? (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">每 100g 含量</Label>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {contentKeys.map((key) => (
+                                <div key={key} className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">{key}</Label>
+                                  <Input
+                                    value={nutritionFacts[key] ?? ""}
+                                    placeholder="如：约 XXX /100g"
+                                    onChange={(event) => {
+                                      const next = { ...nutritionFacts, [key]: event.target.value };
+                                      updateField("nutritionFacts", next);
+                                    }}
+                                  />
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">NRV%（营养素参考值百分比）</Label>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {nrvKeys.map((key) => (
+                                <div key={key} className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">{key}</Label>
+                                  <Input
+                                    value={nutritionFacts[key] ?? ""}
+                                    placeholder="如：12%"
+                                    onChange={(event) => {
+                                      const next = { ...nutritionFacts, [key]: event.target.value };
+                                      updateField("nutritionFacts", next);
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">其他</Label>
+                            <Input
+                              value={nutritionFacts["其他"] ?? ""}
+                              placeholder="如：钙 120mg/100g、维生素C 30mg/100g"
+                              onChange={(event) => {
+                                const next = { ...nutritionFacts, "其他": event.target.value };
+                                updateField("nutritionFacts", next);
+                              }}
+                            />
+                          </div>
+
+                          <p className="text-xs text-muted-foreground">
+                            填写精确数据后，AI 在规划和生图时会直接使用这些数值，不会编造。
+                          </p>
                         </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">其他</Label>
-                        <Input
-                          value={nutritionFacts["其他"] ?? ""}
-                          placeholder="如：钙 120mg/100g、维生素C 30mg/100g"
-                          onChange={(event) => {
-                            const next = { ...nutritionFacts, "其他": event.target.value };
-                            updateField("nutritionFacts", next);
-                          }}
-                        />
-                      </div>
-
-                      <p className="text-xs text-muted-foreground">
-                        填写精确数据后，AI 在规划和生图时会直接使用这些数值，不会编造。
-                      </p>
+                      ) : null}
                     </div>
                   );
                 })()}
 
-                {[
-                  ["styleTags", "风格标签"],
-                  ["targetAudience", "目标人群"],
-                  ["usageScenarios", "使用场景"],
-                  ["coreSellingPoints", "核心卖点"],
-                  ["differentiationPoints", "差异化亮点"],
-                  ["userConcerns", "用户顾虑"],
-                  ["recommendedFocusPoints", "推荐重点"],
-                ].map(([key, label]) => (
-                  <div key={key} className="space-y-2">
-                    <Label>{label}</Label>
-                    <Textarea
-                      value={arrayToText((analysis as any)[key])}
-                      onChange={(event) => updateField(key, textToArray(event.target.value))}
-                    />
-                  </div>
-                ))}
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setAnalysisResultExpanded((v) => !v)}
+                    className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left transition-colors hover:bg-muted/60"
+                  >
+                    <Label className="cursor-pointer">分析结果字段</Label>
+                    {analysisResultExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </button>
 
-                <div className="flex flex-wrap gap-3">
+                  {analysisResultExpanded ? (
+                    <div className="space-y-4">
+                      {[
+                        ["styleTags", "风格标签"],
+                        ["targetAudience", "目标人群"],
+                        ["usageScenarios", "使用场景"],
+                        ["coreSellingPoints", "核心卖点"],
+                        ["differentiationPoints", "差异化亮点"],
+                        ["userConcerns", "用户顾虑"],
+                        ["recommendedFocusPoints", "推荐重点"],
+                      ].map(([key, label]) => (
+                        <div key={key} className="space-y-2">
+                          <Label>{label}</Label>
+                          <Textarea
+                            value={arrayToText((analysis as any)[key])}
+                            onChange={(event) => updateField(key, textToArray(event.target.value))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-3">
                   <Button onClick={saveAnalysis} disabled={saving}>
                     {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     保存分析结果
@@ -552,6 +632,19 @@ export function AnalysisWorkspace({
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteAssetId)}
+        title="删除素材"
+        description="确定要删除这个素材吗？此操作不可恢复。"
+        confirmText="确认删除"
+        cancelText="取消"
+        destructive
+        loading={deletingAsset}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => setPendingDeleteAssetId(null)}
+        onConfirm={confirmDeleteAsset}
+      />
     </div>
   );
 }

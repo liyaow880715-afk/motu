@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ImagePlus, Loader2, MessageCircle, RotateCcw, Save, ShoppingCart, Sparkles, Star, Upload, X } from "lucide-react";
 
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,17 +134,17 @@ const previewTexts: Record<
     buyNow: "今すぐ購入",
   },
   "ko-KR": {
-    priceTag: "???",
-    reviewsTitle: "??",
-    reviewsSubtitle: "???? ??? ?? ???? ?????",
-    detailTitle: "?? ???",
-    detailSubtitle: (count) => `?? ???? ${count}?? ?? ??? ??`,
-    heroPlaceholder: "?? ???",
-    detailPlaceholder: "? ??? ?? ???? ?????",
-    customerService: "??",
-    cart: "????",
-    addToCart: "???? ??",
-    buyNow: "?? ??",
+    priceTag: "신상품",
+    reviewsTitle: "리뷰",
+    reviewsSubtitle: "고객들의 생생한 후기를 확인필보세요",
+    detailTitle: "상세 정보",
+    detailSubtitle: (count) => `기획 순서대로 ${count}개의 상세 모듈 표시`,
+    heroPlaceholder: "헤드 이미지",
+    detailPlaceholder: "이 모듈은 아직 생성되지 않았습니다",
+    customerService: "상담",
+    cart: "장바구니",
+    addToCart: "장바구니 담기",
+    buyNow: "바로 구매",
   },
 };
 
@@ -258,10 +259,23 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [selectedHeroIndex, setSelectedHeroIndex] = useState(0);
   const { selectedSectionId, setSelectedSectionId } = useEditorStore();
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   useEffect(() => {
     setCheckedReferences([]);
   }, [selectedSectionId]);
+
+  useEffect(() => {
+    if (!runningAction) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [runningAction]);
+
+
 
   useEffect(() => {
     if (!selectedSectionId && initialProject.sections[0]) {
@@ -333,6 +347,17 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
     toast.success("模块已保存");
     await refreshProject();
   };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        void saveSection();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const uploadSectionReference = async (file: File) => {
     if (!selectedSection) return;
@@ -528,7 +553,14 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                     {galleryImages.length > 0 ? (
                       <div className="space-y-2">
                         <div className="relative aspect-square bg-slate-100">
-                          {activeHeroImage ? <img src={activeHeroImage.url} alt={activeHeroImage.label} className="h-full w-full object-cover" /> : null}
+                          {activeHeroImage ? (
+                            <img
+                              src={activeHeroImage.url}
+                              alt={activeHeroImage.label}
+                              className="h-full w-full cursor-zoom-in object-cover"
+                              onClick={() => setLightboxSrc(activeHeroImage.url)}
+                            />
+                          ) : null}
                           {activeHeroImage?.generationLabel ? (
                             <div className="absolute left-3 top-3 rounded-full bg-black/65 px-3 py-1 text-xs text-white">{activeHeroImage.generationLabel}</div>
                           ) : null}
@@ -566,7 +598,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
 
                   <div className="space-y-3 px-4 py-4">
                     <div className="flex items-center gap-2 text-[#ff5a1f]">
-                      <span className="text-2xl font-bold">￥39.90</span>
+                      <span className="text-2xl font-bold">￥{project.analysis?.normalizedResult?.price ?? "??.??"}</span>
                       <span className="rounded-full bg-[#fff1eb] px-2 py-0.5 text-xs">{previewUi.priceTag}</span>
                     </div>
                     <div className="space-y-2">
@@ -615,7 +647,12 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                     <section key={section.id} className="bg-white">
                       {section.imageUrl ? (
                         <div className="relative bg-slate-100">
-                          <img src={section.imageUrl} alt={section.title} className="w-full object-cover" />
+                          <img
+                            src={section.imageUrl}
+                            alt={section.title}
+                            className="w-full cursor-zoom-in object-cover"
+                            onClick={() => setLightboxSrc(section.imageUrl)}
+                          />
                           {getGenerationLabel(section) ? (
                             <div className="absolute right-3 top-3 rounded-full bg-black/65 px-3 py-1 text-xs text-white">{getGenerationLabel(section)}</div>
                           ) : null}
@@ -871,6 +908,8 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
           )}
         </CardContent>
       </Card>
+
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }

@@ -439,8 +439,10 @@ function ProviderConfigPanel({
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-            还没有保存过{purposeLabel}配置。首次保存后，这里就可以直接读取并快捷切换。
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+            <PlugZap className="h-8 w-8 text-muted-foreground/50" />
+            <p className="mt-2 text-sm font-medium text-muted-foreground">还没有保存过{purposeLabel}配置</p>
+            <p className="mt-1 text-xs text-muted-foreground">首次保存后，这里就可以直接读取并快捷切换</p>
           </div>
         )}
       </div>

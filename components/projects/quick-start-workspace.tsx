@@ -29,6 +29,7 @@ export function QuickStartWorkspace() {
   const { keyInfo } = useAuthStore();
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [productInfo, setProductInfo] = useState("");
   const [category, setCategory] = useState("");
   const [sellingPoints, setSellingPoints] = useState("");
@@ -189,7 +190,21 @@ export function QuickStartWorkspace() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white/50 p-6 dark:border-white/10 dark:bg-white/[0.03]">
+        <div
+          className={`mt-6 rounded-[1.75rem] border border-dashed p-6 transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-slate-300 bg-white/50 dark:border-white/10 dark:bg-white/[0.03]"}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const dropped = e.dataTransfer.files?.[0] ?? null;
+            if (dropped && dropped.type.startsWith("image/")) {
+              setFile(dropped);
+            } else if (dropped) {
+              toast.error("请上传图片文件");
+            }
+          }}
+        >
           <p className="text-sm font-medium mb-3">📤 上传产品图片（选填）</p>
           <Input
             id="quick-start-file"
@@ -198,8 +213,10 @@ export function QuickStartWorkspace() {
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             className="mb-2"
           />
-          {file && (
+          {file ? (
             <p className="text-xs text-slate-500">已选择：{file.name}</p>
+          ) : (
+            <p className="text-xs text-slate-500">点击选择或拖拽图片到此处</p>
           )}
         </div>
 

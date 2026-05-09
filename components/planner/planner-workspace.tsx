@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Clock,
   ImagePlus,
   Info,
   LayoutTemplate,
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import { NoticeCard } from "@/components/shared/notice-card";
 import { ProjectOutputConfigCard } from "@/components/shared/project-output-config-card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -149,6 +151,21 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
     stage: "idle",
     detail: "",
   });
+  const [pendingDeleteSection, setPendingDeleteSection] = useState<{ id: string; type: "hero" | "detail" } | null>(null);
+  const [deletingSection, setDeletingSection] = useState(false);
+
+  useEffect(() => {
+    const isBusy = planning || bulkGenerating || savingConfig || Boolean(runningSectionId) || Boolean(deletingSection);
+    if (!isBusy) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [planning, bulkGenerating, savingConfig, runningSectionId, deletingSection]);
+
+
 
   const heroSections = useMemo(
     () => sections.filter((section: any) => section.type === "HERO"),
@@ -222,6 +239,17 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
       setSavingConfig(false);
     }
   };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        void saveGenerationSettings();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const autoPlan = async () => {
     setPlanning(true);
@@ -367,33 +395,34 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
   };
 
   const removeDetailSection = async (sectionId: string) => {
-    const response = await fetch(`/api/projects/${project.id}/sections/${sectionId}`, {
-      method: "DELETE",
-    });
-
-    const payload = await response.json();
-    if (!payload.success) {
-      toast.error(payload.error?.message ?? "删除模块失败");
-      return;
-    }
-
-    await refreshProject();
-    toast.success("详情页模块已删除");
+    setPendingDeleteSection({ id: sectionId, type: "detail" });
   };
 
   const removeHeroSection = async (sectionId: string) => {
-    const response = await fetch(`/api/projects/${project.id}/sections/${sectionId}`, {
-      method: "DELETE",
-    });
+    setPendingDeleteSection({ id: sectionId, type: "hero" });
+  };
 
-    const payload = await response.json();
-    if (!payload.success) {
-      toast.error(payload.error?.message ?? "删除头图失败");
-      return;
+  const confirmDeleteSection = async () => {
+    if (!pendingDeleteSection) return;
+    setDeletingSection(true);
+    try {
+      const response = await fetch(`/api/projects/${project.id}/sections/${pendingDeleteSection.id}`, {
+        method: "DELETE",
+      });
+
+      const payload = await response.json();
+      if (!payload.success) {
+        throw new Error(payload.error?.message ?? "删除失败");
+      }
+
+      await refreshProject();
+      toast.success(pendingDeleteSection.type === "hero" ? "头图规划项已删除" : "详情页模块已删除");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      setDeletingSection(false);
+      setPendingDeleteSection(null);
     }
-
-    await refreshProject();
-    toast.success("头图规划项已删除");
   };
 
   const getSectionReferenceAssets = (section: any) => {
@@ -677,14 +706,20 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
                     AI 会直接输出独立的头图规划项和详情页规划项，头图永远排在前面，页面壳层不进入可规划模块。你手动新增、删除或改类型后，数量会自动回写并与分析页配置保持同步。
                   </p>
                 </div>
-                <Button
-                  onClick={autoPlan}
-                  disabled={planning || bulkGenerating}
-                  className="h-10 shrink-0 whitespace-nowrap px-5 text-sm md:min-w-[240px]"
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {planning ? "AI 正在规划头图与详情页…" : hasPlannedSections ? "重新规划头图与详情页" : "AI 自动规划"}
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    onClick={autoPlan}
+                    disabled={planning || bulkGenerating}
+                    className="h-10 shrink-0 whitespace-nowrap px-5 text-sm md:min-w-[240px]"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {planning ? "AI 正在规划头图与详情页…" : hasPlannedSections ? "重新规划头图与详情页" : "AI 自动规划"}
+                  </Button>
+                  <p className="text-right text-xs text-muted-foreground">
+                    <Clock className="mr-1 inline-block h-3 w-3" />
+                    预计规划时长 1-2 分钟，请耐心等待
+                  </p>
+                </div>
               </div>
 
               {planning ? (
@@ -1223,6 +1258,19 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteSection)}
+        title={pendingDeleteSection?.type === "hero" ? "删除头图规划项" : "删除详情页模块"}
+        description="确定要删除这个模块吗？此操作不可恢复。"
+        confirmText="确认删除"
+        cancelText="取消"
+        destructive
+        loading={deletingSection}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => setPendingDeleteSection(null)}
+        onConfirm={confirmDeleteSection}
+      />
     </div>
   );
 }

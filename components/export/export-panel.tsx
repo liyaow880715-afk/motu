@@ -1,5 +1,10 @@
+"use client";
+
+import { useState } from "react";
+import { ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { assetTypeLabels, sectionTypeLabels } from "@/types/domain";
 
 function getPreviewConfig(project: any) {
@@ -14,6 +19,7 @@ export function ExportPanel({ project }: { project: any }) {
   const previewConfig = getPreviewConfig(project);
   const galleryAssets = project.assets.filter((asset: any) => ["MAIN", "ANGLE", "DETAIL"].includes(asset.type));
   const generatedSections = project.sections.filter((section: any) => Boolean(section.imageUrl));
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
@@ -69,13 +75,20 @@ export function ExportPanel({ project }: { project: any }) {
             </div>
             <div className="grid gap-3 xl:grid-cols-2">
               {galleryAssets.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  暂无头图素材
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                  <p className="mt-2 text-sm font-medium text-muted-foreground">暂无头图素材</p>
+                  <p className="mt-1 text-xs text-muted-foreground">请在分析页上传主图和补充素材</p>
                 </div>
               ) : (
                 galleryAssets.map((asset: any) => (
                   <div key={asset.id} className="rounded-2xl border border-border p-3">
-                    <img src={asset.url} alt={asset.fileName} className="rounded-2xl border border-border" />
+                    <img
+                      src={asset.url}
+                      alt={asset.fileName}
+                      className="cursor-zoom-in rounded-2xl border border-border"
+                      onClick={() => setLightboxSrc(asset.url)}
+                    />
                     <p className="mt-3 text-sm font-medium">
                       {assetTypeLabels[asset.type as keyof typeof assetTypeLabels] ?? asset.type}
                     </p>
@@ -93,8 +106,10 @@ export function ExportPanel({ project }: { project: any }) {
             </div>
             <div className="grid gap-3 xl:grid-cols-2">
               {generatedSections.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  暂无可导出的详情页模块图
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                  <p className="mt-2 text-sm font-medium text-muted-foreground">暂无可导出的详情页模块图</p>
+                  <p className="mt-1 text-xs text-muted-foreground">请先在规划页完成模块生成</p>
                 </div>
               ) : (
                 generatedSections.map((section: any) => (
@@ -109,7 +124,12 @@ export function ExportPanel({ project }: { project: any }) {
                       <Badge variant="outline">{section.status}</Badge>
                     </div>
                     {section.imageUrl ? (
-                      <img src={section.imageUrl} alt={section.title} className="rounded-2xl border border-border" />
+                      <img
+                        src={section.imageUrl}
+                        alt={section.title}
+                        className="cursor-zoom-in rounded-2xl border border-border"
+                        onClick={() => setLightboxSrc(section.imageUrl)}
+                      />
                     ) : (
                       <div className="rounded-2xl bg-muted p-6 text-sm text-muted-foreground">尚未生成图像</div>
                     )}
@@ -120,6 +140,8 @@ export function ExportPanel({ project }: { project: any }) {
           </div>
         </CardContent>
       </Card>
+
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }

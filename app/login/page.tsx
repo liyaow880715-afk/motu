@@ -46,10 +46,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="relative z-10 flex min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: "rgba(2, 6, 23, 0.78)" }}
-    >
+    <div className="relative z-10 flex min-h-screen items-center justify-center bg-slate-950/80 px-4">
       <div className="w-full max-w-md space-y-8">
         {/* Logo */}
         <div className="text-center">

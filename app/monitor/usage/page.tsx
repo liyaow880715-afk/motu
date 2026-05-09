@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Clock3, Coins, Filter, ImageIcon, RefreshCcw, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, Clock3, Coins, Cpu, Filter, ImageIcon, RefreshCcw, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { ClearUsageButton } from "@/components/monitor/clear-usage-button";
@@ -254,7 +254,11 @@ export default async function ApiUsageMonitorPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {summary.topProjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">暂时还没有项目级调用记录。</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+                <BarChart3 className="h-8 w-8 text-muted-foreground/50" />
+                <p className="mt-2 text-sm font-medium text-muted-foreground">暂时还没有项目级调用记录</p>
+                <p className="mt-1 text-xs text-muted-foreground">创建项目并运行 AI 分析后，这里会显示数据</p>
+              </div>
             ) : (
               summary.topProjects.map((item) => (
                 <div key={item.projectId} className="flex items-center justify-between rounded-2xl border border-border px-4 py-3">
@@ -276,7 +280,11 @@ export default async function ApiUsageMonitorPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {summary.topModels.length === 0 ? (
-              <p className="text-sm text-muted-foreground">暂时还没有调用记录。</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+                <Cpu className="h-8 w-8 text-muted-foreground/50" />
+                <p className="mt-2 text-sm font-medium text-muted-foreground">暂时还没有调用记录</p>
+                <p className="mt-1 text-xs text-muted-foreground">配置 Provider 并运行生成任务后，这里会显示数据</p>
+              </div>
             ) : (
               summary.topModels.map((item) => (
                 <div key={item.model} className="flex items-center justify-between rounded-2xl border border-border px-4 py-3">
@@ -300,7 +308,11 @@ export default async function ApiUsageMonitorPage({
         </CardHeader>
         <CardContent className="space-y-3">
           {summary.recentEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">还没有 API 调用记录。</p>
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+              <Activity className="h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-2 text-sm font-medium text-muted-foreground">还没有 API 调用记录</p>
+              <p className="mt-1 text-xs text-muted-foreground">配置 Provider 并运行生成任务后，这里会显示数据</p>
+            </div>
           ) : (
             summary.recentEntries.map((entry: ApiUsageEntry) => (
               <div key={entry.id} className="rounded-2xl border border-border p-4">

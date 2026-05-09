@@ -25,6 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { TemplateRecord, TemplateModule } from "@/types/template";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 export default function TemplatesPage() {
   const router = useRouter();
@@ -46,6 +47,12 @@ export default function TemplatesPage() {
     modules: TemplateModule[];
   } | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [applyTarget, setApplyTarget] = useState<TemplateRecord | null>(null);
+  const [applyProductName, setApplyProductName] = useState("");
+  const [applyPlatform, setApplyPlatform] = useState("淘宝");
+  const [applying, setApplying] = useState(false);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -167,9 +174,14 @@ export default function TemplatesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("确定删除此模板？")) return;
+    setPendingDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/templates/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/templates/${pendingDeleteId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         toast.success("已删除");
@@ -179,23 +191,30 @@ export default function TemplatesPage() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   }
 
   async function handleApply(template: TemplateRecord) {
-    const productName = prompt("请输入要套用此模板的商品名称：");
-    if (!productName) return;
-    const platform = prompt("请选择电商平台（淘宝/京东/拼多多/抖音）：", "淘宝") ?? "淘宝";
+    setApplyTarget(template);
+    setApplyProductName("");
+    setApplyPlatform("淘宝");
+  }
 
+  async function confirmApply() {
+    if (!applyTarget || !applyProductName.trim()) return;
+    setApplying(true);
     try {
-      const res = await fetch(`/api/templates/${template.id}/apply`, {
+      const res = await fetch(`/api/templates/${applyTarget.id}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `${productName} 详情页`,
-          platform,
+          name: `${applyProductName.trim()} 详情页`,
+          platform: applyPlatform,
           style: "套版生成",
-          productName,
+          productName: applyProductName.trim(),
           productCategory: "通用",
         }),
       });
@@ -208,6 +227,9 @@ export default function TemplatesPage() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "应用失败");
+    } finally {
+      setApplying(false);
+      setApplyTarget(null);
     }
   }
 
@@ -557,6 +579,68 @@ export default function TemplatesPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteId)}
+        title="删除模板"
+        description="确定要删除这个模板吗？此操作不可恢复。"
+        confirmText="确认删除"
+        cancelText="取消"
+        destructive
+        loading={deleting}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={confirmDelete}
+      />
+
+      {applyTarget && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="关闭"
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            onClick={() => setApplyTarget(null)}
+          />
+          <div className="relative z-[121] w-full max-w-md rounded-[28px] border border-border bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.18)] dark:border-white/10 dark:bg-[#111214]">
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">套用模板</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              将「{applyTarget.name}」应用到新商品
+            </p>
+            <div className="mt-4 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">商品名称</Label>
+                <Input
+                  value={applyProductName}
+                  onChange={(e) => setApplyProductName(e.target.value)}
+                  placeholder="例如：全麦山药茯苓馒头"
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">电商平台</Label>
+                <select
+                  value={applyPlatform}
+                  onChange={(e) => setApplyPlatform(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm dark:bg-black/30 dark:text-slate-100"
+                >
+                  <option>淘宝</option>
+                  <option>京东</option>
+                  <option>拼多多</option>
+                  <option>抖音</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setApplyTarget(null)} disabled={applying} className="rounded-xl">
+                取消
+              </Button>
+              <Button onClick={confirmApply} disabled={applying || !applyProductName.trim()} className="rounded-xl">
+                {applying ? "应用中..." : "确认套用"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

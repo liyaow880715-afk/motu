@@ -6,6 +6,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuthStore } from "@/hooks/use-auth-store";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Section {
   id: string;
@@ -22,6 +23,11 @@ export function BatchGenerateButton({ projectId, sections }: BatchGenerateButton
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const pendingSections = sections.filter(
+    (s) => s.status !== "GENERATING" && s.status !== "SUCCESS",
+  );
 
   const handleBatchGenerate = useCallback(async () => {
     const { keyInfo } = useAuthStore.getState();
@@ -30,19 +36,16 @@ export function BatchGenerateButton({ projectId, sections }: BatchGenerateButton
       return;
     }
 
-    const pendingSections = sections.filter(
-      (s) => s.status !== "GENERATING" && s.status !== "SUCCESS",
-    );
-
     if (pendingSections.length === 0) {
       toast.info("所有模块已有图片，无需生成");
       return;
     }
 
-    if (!confirm(`确定一键生成 ${pendingSections.length} 个模块的图片？这可能需要几分钟。`)) {
-      return;
-    }
+    setShowConfirm(true);
+  }, [pendingSections.length]);
 
+  const doGenerate = async () => {
+    setShowConfirm(false);
     setRunning(true);
     setProgress({ current: 0, total: pendingSections.length });
 
@@ -87,7 +90,7 @@ export function BatchGenerateButton({ projectId, sections }: BatchGenerateButton
     }
 
     router.refresh();
-  }, [projectId, sections, router]);
+  };
 
   if (running) {
     return (
@@ -99,9 +102,20 @@ export function BatchGenerateButton({ projectId, sections }: BatchGenerateButton
   }
 
   return (
-    <Button variant="outline" onClick={handleBatchGenerate}>
-      <Sparkles className="mr-2 h-4 w-4" />
-      一键生成所有图片
-    </Button>
+    <>
+      <Button variant="outline" onClick={handleBatchGenerate}>
+        <Sparkles className="mr-2 h-4 w-4" />
+        一键生成所有图片
+      </Button>
+      <ConfirmDialog
+        open={showConfirm}
+        title="一键生成图片"
+        description={`确定一键生成 ${pendingSections.length} 个模块的图片？这可能需要几分钟。`}
+        confirmText="开始生成"
+        cancelText="取消"
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={doGenerate}
+      />
+    </>
   );
 }
