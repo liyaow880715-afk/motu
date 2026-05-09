@@ -95,9 +95,9 @@ async function pruneProjectToPreviewConfig(projectId: string, snapshot: unknown)
   }
 }
 
-export async function listProjects(accessKeyId?: string | null) {
+export async function listProjects(_accessKeyId?: string | null) {
+  // 所有激活码可见全部项目历史
   const projects = await prisma.project.findMany({
-    where: accessKeyId ? { accessKeyId } : undefined,
     orderBy: { updatedAt: "desc" },
     include: {
       assets: {

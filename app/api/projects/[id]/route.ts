@@ -12,18 +12,9 @@ function getAccessKeyFromHeader(request: NextRequest): string | undefined {
   return request.headers.get("x-access-key") ?? undefined;
 }
 
-async function verifyProjectOwnership(projectId: string, accessKey: string | undefined) {
-  // Desktop: local SQLite is single-user, bypass ownership check
-  if (env.APP_RUNTIME === "desktop") return true;
-  if (!accessKey) return false;
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { accessKeyId: true },
-  });
-  if (!project) return false;
-  // Allow if project has no owner (legacy) or matches the key
-  if (!project.accessKeyId) return true;
-  return project.accessKeyId === accessKey;
+async function verifyProjectOwnership(_projectId: string, _accessKey: string | undefined) {
+  // 所有激活码可见全部项目历史
+  return true;
 }
 
 export async function GET(request: NextRequest, context: { params: { id: string } }) {

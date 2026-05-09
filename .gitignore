@@ -66,4 +66,5 @@ next-env.d.ts
 # build outputs
 banana-mall-standalone/
 test-verify2/
+deploy-web/
 *.zip
