@@ -496,7 +496,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                 key={section.id}
                 type="button"
                 onClick={() => setSelectedSectionId(section.id)}
-                className={`w-full rounded-2xl border p-4 text-left transition-[transform,background-color,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] ${
+                className={`w-full rounded-2xl border p-4 text-left transition-colors duration-150 hover:bg-muted/40 active:scale-[0.99] ${
                   section.id === selectedSection?.id
                     ? "border-primary bg-primary/5 dark:border-white/20 dark:bg-white/10"
                     : "border-border bg-white dark:border-white/10 dark:bg-white/[0.04]"
@@ -557,6 +557,8 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                             <img
                               src={activeHeroImage.url}
                               alt={activeHeroImage.label}
+                              loading="lazy"
+                              decoding="async"
                               className="h-full w-full cursor-zoom-in object-cover"
                               onClick={() => setLightboxSrc(activeHeroImage.url)}
                             />
@@ -578,7 +580,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                               >
                                 {image?.url ? (
                                   <>
-                                    <img src={image.url} alt={image.label} className="h-full w-full object-cover" />
+                                    <img src={image.url} alt={image.label} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                                     {image.generationLabel ? (
                                       <div className="absolute inset-x-1 bottom-1 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] text-white">{image.generationLabel}</div>
                                     ) : null}
@@ -650,6 +652,8 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                           <img
                             src={section.imageUrl}
                             alt={section.title}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full cursor-zoom-in object-cover"
                             onClick={() => setLightboxSrc(section.imageUrl)}
                           />
@@ -674,27 +678,27 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                 <div className="grid w-full grid-cols-[0.78fr_0.92fr_1.15fr_1.15fr] gap-2 px-2 pb-1.5 pt-2">
                   <button
                     type="button"
-                    className="flex h-10 min-w-0 items-center justify-center gap-1 overflow-hidden rounded-2xl border border-slate-200 bg-white px-1.5 text-[10px] font-medium text-slate-500 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-700 active:scale-[0.98]"
+                    className="flex h-10 min-w-0 items-center justify-center gap-1 overflow-hidden rounded-2xl border border-slate-200 bg-white px-1.5 text-[10px] font-medium text-slate-500 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-700 active:scale-[0.98]"
                   >
                     <MessageCircle className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{previewUi.customerService}</span>
                   </button>
                   <button
                     type="button"
-                    className="flex h-10 min-w-0 items-center justify-center gap-1 overflow-hidden rounded-2xl border border-slate-200 bg-white px-1.5 text-[10px] font-medium text-slate-500 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-700 active:scale-[0.98]"
+                    className="flex h-10 min-w-0 items-center justify-center gap-1 overflow-hidden rounded-2xl border border-slate-200 bg-white px-1.5 text-[10px] font-medium text-slate-500 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-700 active:scale-[0.98]"
                   >
                     <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{previewUi.cart}</span>
                   </button>
                   <button
                     type="button"
-                    className="h-10 min-w-0 overflow-hidden rounded-full bg-[#ffcc55] px-2 text-[11px] font-semibold text-slate-900 transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-md active:scale-[0.98]"
+                    className="h-10 min-w-0 overflow-hidden rounded-full bg-[#ffcc55] px-2 text-[11px] font-semibold text-slate-900 transition-colors duration-150 hover:bg-[#ffd700] active:scale-[0.98]"
                   >
                     <span className="block truncate">{previewUi.addToCart}</span>
                   </button>
                   <button
                     type="button"
-                    className="h-10 min-w-0 overflow-hidden rounded-full bg-[#ff5a1f] px-2 text-[11px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-md active:scale-[0.98]"
+                    className="h-10 min-w-0 overflow-hidden rounded-full bg-[#ff5a1f] px-2 text-[11px] font-semibold text-white transition-colors duration-150 hover:bg-[#ff6b35] active:scale-[0.98]"
                   >
                     <span className="block truncate">{previewUi.buyNow}</span>
                   </button>
@@ -771,7 +775,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                   <div className="flex flex-wrap gap-2">
                     {sectionReferenceAssets.map((asset: any) => (
                       <div key={asset.id} className="group relative">
-                        <img src={asset.url} alt={asset.fileName} className="h-20 w-20 rounded-xl object-cover" />
+                        <img src={asset.url} alt={asset.fileName} loading="lazy" decoding="async" className="h-20 w-20 rounded-xl object-cover" />
                         <button
                           type="button"
                           onClick={() => removeSectionReference(asset.id)}
@@ -817,7 +821,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                     {referenceAssets.map((asset: any) => (
                       <label
                         key={asset.id}
-                        className={`relative cursor-pointer rounded-xl border p-2 transition-all ${
+                        className={`relative cursor-pointer rounded-xl border p-2 transition-colors duration-150 ${
                           checkedReferences.includes(asset.id)
                             ? "border-primary bg-primary/5 ring-1 ring-primary"
                             : "border-border bg-muted/30 hover:border-border hover:bg-muted/50"
@@ -834,7 +838,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
                           }}
                         />
                         <div className="relative aspect-square overflow-hidden rounded-lg bg-slate-100">
-                          <img src={asset.url} alt={asset.fileName} className="h-full w-full object-cover" />
+                          <img src={asset.url} alt={asset.fileName} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                           {checkedReferences.includes(asset.id) && (
                             <div className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
