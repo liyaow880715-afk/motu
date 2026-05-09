@@ -38,9 +38,12 @@ $staticDst = ".next/standalone/.next/static"
 if (Test-Path $staticDst) { Remove-Item -Recurse -Force $staticDst }
 Copy-Item -Recurse -Force $staticSrc $staticDst
 
-# 3. 复制其他必要文件
+# 3. 复制其他必要文件（严格排除 dev.db，防止覆盖服务器数据库）
 Write-Host "`n[3/6] 复制 prisma/public/.env 到 standalone..." -ForegroundColor Yellow
-Copy-Item -Recurse -Force "prisma" ".next/standalone/prisma" -Exclude "dev.db"
+if (Test-Path ".next/standalone/prisma") { Remove-Item -Recurse -Force ".next/standalone/prisma" }
+Copy-Item -Recurse -Force "prisma" ".next/standalone/prisma"
+# 双重保险：确保 dev.db 不会被打包
+if (Test-Path ".next/standalone/prisma/dev.db") { Remove-Item -Force ".next/standalone/prisma/dev.db" }
 if (Test-Path ".next/standalone/public") { Remove-Item -Recurse -Force ".next/standalone/public" }
 Copy-Item -Recurse -Force "public" ".next/standalone/public"
 Copy-Item -Force ".env" ".next/standalone/.env"
@@ -70,9 +73,13 @@ backup_dir="${DeployPath}.bak.$(date +%Y%m%d_%H%M%S)"
 cp -r $DeployPath "\$backup_dir" 2>/dev/null || true
 ls -dt ${DeployPath}.bak.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
 
-# 保护 .env 关键配置：解压前备份
+# 保护 .env 和数据库：解压前备份
 if [ -f $DeployPath/.env ]; then
     cp $DeployPath/.env /tmp/.env.bak
+fi
+if [ -f $DeployPath/prisma/dev.db ]; then
+    cp $DeployPath/prisma/dev.db /tmp/dev.db.bak
+    echo "已备份数据库: /tmp/dev.db.bak ($(stat -c%s $DeployPath/prisma/dev.db) bytes)"
 fi
 
 # 解压新代码
@@ -94,6 +101,25 @@ if [ -f /tmp/.env.bak ]; then
         fi
     done
     rm -f /tmp/.env.bak
+fi
+
+# 恢复数据库（防止部署包中的空 dev.db 覆盖服务器数据）
+if [ -f /tmp/dev.db.bak ]; then
+    if [ -f prisma/dev.db ]; then
+        # 如果新部署包带了 dev.db，比较大小，服务器端更大则恢复
+        local_size=$(stat -c%s prisma/dev.db 2>/dev/null || echo 0)
+        backup_size=$(stat -c%s /tmp/dev.db.bak 2>/dev/null || echo 0)
+        if [ "$backup_size" -gt "$local_size" ]; then
+            cp /tmp/dev.db.bak prisma/dev.db
+            echo "已恢复数据库备份 ($backup_size bytes)"
+        else
+            echo "保留当前数据库 ($local_size bytes)"
+        fi
+    else
+        cp /tmp/dev.db.bak prisma/dev.db
+        echo "已恢复数据库备份"
+    fi
+    rm -f /tmp/dev.db.bak
 fi
 
 # 确保 AUTH_SERVER_URL 配置（首次部署时）
