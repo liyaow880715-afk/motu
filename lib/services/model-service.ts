@@ -250,14 +250,14 @@ function buildTryOnPrompt(params: {
     : "clean studio scene";
 
   const accessoryDesc = params.accessories?.length
-    ? `wearing ${params.accessories.join(", ")}`
+    ? `with ${params.accessories.join(", ")}`
     : "";
 
   const bgDesc = params.background
     ? `, ${params.background} background`
     : "";
 
-  return `The model is now wearing this ${params.clothingType}. ${sceneDesc}${bgDesc}. ${accessoryDesc}. Professional fashion photography, full body shot, natural pose, high quality, 8k resolution. Keep the model's face, hairstyle, and body shape exactly the same.`;
+  return `Virtual try-on: The person in the first reference image should wear the clothing item shown in the second reference image (${params.clothingType}). ${sceneDesc}${bgDesc}. ${accessoryDesc}. Keep the person's face, hairstyle, body shape and skin tone exactly the same. Professional fashion photography, full body shot, natural pose, high quality, 8k resolution.`;
 }
 
 export async function generateOutfitShot(params: {
@@ -297,13 +297,12 @@ export async function generateOutfitShot(params: {
     background: params.background,
   });
 
-  const result = await adapter.editImage({
+  const result = await adapter.generateImage({
     model: editModel,
     prompt,
-    image: modelDataUrl,
     size: "1024x1536",
     aspectRatio: "9:16",
-    referenceImages: [clothingDataUrl],
+    referenceImages: [modelDataUrl, clothingDataUrl],
   });
 
   if (!result.b64Json && !result.url) {
