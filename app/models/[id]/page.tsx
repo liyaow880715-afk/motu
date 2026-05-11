@@ -51,7 +51,7 @@ export default function ModelDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/models?id=${id}`)
+    fetch(`/api/models/${id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {

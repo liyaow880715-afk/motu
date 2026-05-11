@@ -54,7 +54,7 @@ export default function TryOnPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/models?id=${id}`)
+    fetch(`/api/models/${id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) setModel({ name: data.data.name, frontViewPath: data.data.frontViewPath });
