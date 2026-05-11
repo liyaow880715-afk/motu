@@ -257,7 +257,7 @@ function buildTryOnPrompt(params: {
     ? `, ${params.background} background`
     : "";
 
-  return `Virtual try-on: The person in the first reference image must wear the exact same clothing item shown in the second reference image. CRITICAL: Replicate the precise pattern, colors, textures, fabric details, prints, and design elements from the second reference image EXACTLY - do not alter, simplify, or reinterpret the pattern. The clothing item must be an exact visual match to the reference. Keep the person's exact face, hairstyle, body shape and skin tone from the first reference image unchanged. Professional fashion photography, full body shot, natural pose, sharp details, photorealistic, 8k resolution. ${sceneDesc}${bgDesc}. ${accessoryDesc}.`;
+  return `Virtual try-on: The person in the first reference image is the model. The second reference image shows a specific clothing item (${params.clothingType}) that MUST be worn by the model. CRITICAL: The pattern, colors, textures, prints and design elements of this ${params.clothingType} from the second reference image must be replicated EXACTLY - do not alter, simplify or reinterpret it. In addition to this ${params.clothingType}, design a complete, cohesive outfit (top, bottom, shoes) that perfectly matches and complements its style, color palette and elegance level. All pieces must be harmonious and fashionable. Keep the model's exact face, hairstyle, body shape and skin tone from the first reference image. Professional fashion photography, full body shot, natural pose, sharp details, photorealistic, 8k resolution. ${sceneDesc}${bgDesc}. ${accessoryDesc}.`;
 }
 
 export async function generateOutfitShot(params: {
