@@ -943,20 +943,12 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     try {
       const referenceImages = input.referenceImages ?? [];
       // Inject aspect ratio/size instruction into prompt for chat-based image generation
-      // Place at the VERY BEGINNING so the model cannot miss it in long prompts
       const sizeInstruction = input.aspectRatio
-        ? `【最高优先级强制要求】你必须生成一张严格保持 ${input.aspectRatio} 宽高比例的图片。任何其他比例都是错误的。`
+        ? `\n\n【强制要求】生成的图片必须严格保持 ${input.aspectRatio} 的宽高比例。`
         : input.size
-          ? `【最高优先级强制要求】你必须生成一张尺寸严格为 ${input.size} 像素的图片。任何其他尺寸都是错误的。`
+          ? `\n\n【强制要求】生成的图片尺寸必须严格为 ${input.size} 像素。`
           : "";
-      const fullPrompt = sizeInstruction
-        ? `${sizeInstruction}\n\n${input.prompt}`
-        : input.prompt;
-
-      // DEBUG: log actual prompt sent to model
-      console.log(`[DEBUG tryGenerateImageViaChat] model=${input.model} aspectRatio=${input.aspectRatio} size=${input.size}`);
-      console.log(`[DEBUG tryGenerateImageViaChat] sizeInstruction="${sizeInstruction}"`);
-      console.log(`[DEBUG tryGenerateImageViaChat] fullPrompt start (first 600 chars):\n${fullPrompt.slice(0, 600)}`);
+      const fullPrompt = input.prompt + sizeInstruction;
 
       const messageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }> =
         referenceImages.length > 0
@@ -973,19 +965,17 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
         body: JSON.stringify({
           model: input.model,
           messages: [{ role: "user", content: messageContent }],
-          size: resolveOpenAiSize(input),
+          size: input.aspectRatio ?? resolveOpenAiSize(input),
         }),
       }, 180000, input.monitor);
 
       const responseContent = payload.choices?.[0]?.message?.content ?? "";
       const imageUrl = extractMarkdownImageUrl(responseContent);
-      console.log(`[DEBUG tryGenerateImageViaChat] response imageUrl=${imageUrl ?? "null"}`);
       if (imageUrl) {
         return { url: imageUrl, b64Json: null, revisedPrompt: null };
       }
       return null;
-    } catch (err) {
-      console.log(`[DEBUG tryGenerateImageViaChat] error=${err instanceof Error ? err.message : String(err)}`);
+    } catch {
       return null;
     }
   }
