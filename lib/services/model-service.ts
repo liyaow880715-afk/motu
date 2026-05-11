@@ -164,12 +164,40 @@ function buildModelPrompt(basePrompt: string, view: "front" | "back" | "side") {
   return `Professional e-commerce model photo, ${viewDesc[view]}. ${basePrompt}. White/neutral clean background, studio lighting, high quality fashion photography, sharp focus on entire body, 8k resolution.`;
 }
 
+function resolveImageModel(
+  provider: { models: Array<{ modelId: string; capabilities?: Record<string, unknown> | null; isDefaultHeroImage?: boolean; isDefaultDetailImage?: boolean; isDefaultImageEdit?: boolean }> }
+): string {
+  // 1. 优先找标记为默认的模型
+  const defaults = provider.models.filter(
+    (m) => m.isDefaultHeroImage || m.isDefaultDetailImage || m.isDefaultImageEdit
+  );
+  if (defaults.length > 0) return defaults[0].modelId;
+
+  // 2. fallback 到第一个支持 image_gen 的模型
+  const imageCapable = provider.models.find((m) =>
+    (m.capabilities?.image_gen as boolean) ||
+    (m.capabilities?.real_image_gen as boolean)
+  );
+  if (imageCapable) return imageCapable.modelId;
+
+  // 3. fallback 到第一个支持 chat-based image 的模型 (image2 系列)
+  const chatImage = provider.models.find((m) =>
+    /^image2/i.test(m.modelId)
+  );
+  if (chatImage) return chatImage.modelId;
+
+  throw new Error(
+    "未找到可用的图片生成模型。请在 AI 配置中配置一个支持图片生成的模型，并设为默认。"
+  );
+}
+
 export async function generateModelViews(params: {
   modelId: string;
   characterPrompt: string;
   seed?: string;
 }) {
-  const { adapter } = await getProviderAdapter("image");
+  const { adapter, provider } = await getProviderAdapter("image");
+  const imageModel = resolveImageModel(provider);
 
   const views: ("front" | "back" | "side")[] = ["front", "back", "side"];
   const results: Record<string, string> = {};
@@ -178,7 +206,7 @@ export async function generateModelViews(params: {
     const prompt = buildModelPrompt(params.characterPrompt, view);
 
     const result = await adapter.generateImage({
-      model: "",
+      model: imageModel,
       prompt,
       size: "1024x1536", // 9:16 full body
       aspectRatio: "9:16",
@@ -241,7 +269,8 @@ export async function generateOutfitShot(params: {
   accessories?: string[];
   background?: string;
 }) {
-  const { adapter } = await getProviderAdapter("image");
+  const { adapter, provider } = await getProviderAdapter("image");
+  const editModel = resolveImageModel(provider);
 
   // Read model front view as base image
   const modelImage = await readModelImage(params.modelTemplateId, "front");
@@ -269,7 +298,7 @@ export async function generateOutfitShot(params: {
   });
 
   const result = await adapter.editImage({
-    model: "",
+    model: editModel,
     prompt,
     image: modelDataUrl,
     size: "1024x1536",
