@@ -45,6 +45,13 @@ export async function saveUploadAsset(params: {
   const relativePath = path.join("uploads", params.projectId, safeName);
   await fs.writeFile(path.join(rootDir(), relativePath), params.fileBuffer);
 
+  // Ensure project exists to satisfy foreign key constraint
+  await prisma.project.upsert({
+    where: { id: params.projectId },
+    update: {},
+    create: { id: params.projectId, name: params.projectId, platform: "unknown", style: "unknown" },
+  });
+
   return prisma.productAsset.create({
     data: {
       projectId: params.projectId,
