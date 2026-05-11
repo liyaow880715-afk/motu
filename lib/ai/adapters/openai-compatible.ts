@@ -952,6 +952,12 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       const fullPrompt = sizeInstruction
         ? `${sizeInstruction}\n\n${input.prompt}`
         : input.prompt;
+
+      // DEBUG: log actual prompt sent to model
+      console.log(`[DEBUG tryGenerateImageViaChat] model=${input.model} aspectRatio=${input.aspectRatio} size=${input.size}`);
+      console.log(`[DEBUG tryGenerateImageViaChat] sizeInstruction="${sizeInstruction}"`);
+      console.log(`[DEBUG tryGenerateImageViaChat] fullPrompt start (first 600 chars):\n${fullPrompt.slice(0, 600)}`);
+
       const messageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }> =
         referenceImages.length > 0
           ? [
@@ -973,11 +979,13 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
 
       const responseContent = payload.choices?.[0]?.message?.content ?? "";
       const imageUrl = extractMarkdownImageUrl(responseContent);
+      console.log(`[DEBUG tryGenerateImageViaChat] response imageUrl=${imageUrl ?? "null"}`);
       if (imageUrl) {
         return { url: imageUrl, b64Json: null, revisedPrompt: null };
       }
       return null;
-    } catch {
+    } catch (err) {
+      console.log(`[DEBUG tryGenerateImageViaChat] error=${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   }
