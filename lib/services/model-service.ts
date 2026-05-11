@@ -257,7 +257,7 @@ function buildTryOnPrompt(params: {
     ? `, ${params.background} background`
     : "";
 
-  return `Virtual try-on: The person in the first reference image should wear the clothing item shown in the second reference image (${params.clothingType}). ${sceneDesc}${bgDesc}. ${accessoryDesc}. Keep the person's face, hairstyle, body shape and skin tone exactly the same. Professional fashion photography, full body shot, natural pose, high quality, 8k resolution.`;
+  return `Fashion styling task: The person in the first reference image should wear the clothing item from the second reference image (${params.clothingType}). Design a complete, cohesive outfit that perfectly matches the style, color, elegance level and vibe of this ${params.clothingType}. All pieces (top, bottom, shoes) must be stylistically coordinated and harmonious. Keep the person's exact face, hairstyle, body shape and skin tone from the first reference image. Professional fashion photography, full body shot, natural pose, high quality, 8k resolution. ${sceneDesc}${bgDesc}. ${accessoryDesc}.`;
 }
 
 export async function generateOutfitShot(params: {
