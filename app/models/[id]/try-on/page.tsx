@@ -38,6 +38,14 @@ const accessoryOptions = [
   "腰带",
 ];
 
+const aspectRatios = [
+  { value: "9:16", label: "9:16", desc: "竖版全身" },
+  { value: "3:4", label: "3:4", desc: "竖版详情" },
+  { value: "1:1", label: "1:1", desc: "正方形" },
+  { value: "4:3", label: "4:3", desc: "横版" },
+  { value: "16:9", label: "16:9", desc: "宽屏" },
+];
+
 export default function TryOnPage() {
   const params = useParams();
   const router = useRouter();
@@ -50,6 +58,7 @@ export default function TryOnPage() {
   const [sceneStyle, setSceneStyle] = useState("studio");
   const [accessories, setAccessories] = useState<string[]>([]);
   const [background, setBackground] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("9:16");
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -110,6 +119,7 @@ export default function TryOnPage() {
           sceneStyle,
           accessories,
           background: background || undefined,
+          aspectRatio,
         }),
       });
       const data = await res.json();
@@ -213,6 +223,26 @@ export default function TryOnPage() {
                   }`}
                 >
                   {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">图片比例</Label>
+            <div className="flex flex-wrap gap-2">
+              {aspectRatios.map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => setAspectRatio(r.value)}
+                  className={`rounded-xl px-3 py-1.5 text-xs transition-all ${
+                    aspectRatio === r.value
+                      ? "bg-blue-500 text-white"
+                      : "bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300"
+                  }`}
+                  title={r.desc}
+                >
+                  {r.label}
                 </button>
               ))}
             </div>
