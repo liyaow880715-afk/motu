@@ -943,12 +943,15 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     try {
       const referenceImages = input.referenceImages ?? [];
       // Inject aspect ratio/size instruction into prompt for chat-based image generation
+      // Place at the VERY BEGINNING so the model cannot miss it in long prompts
       const sizeInstruction = input.aspectRatio
-        ? `\n\n【强制要求】生成的图片必须严格保持 ${input.aspectRatio} 的宽高比例。`
+        ? `【最高优先级强制要求】你必须生成一张严格保持 ${input.aspectRatio} 宽高比例的图片。任何其他比例都是错误的。`
         : input.size
-          ? `\n\n【强制要求】生成的图片尺寸必须严格为 ${input.size} 像素。`
+          ? `【最高优先级强制要求】你必须生成一张尺寸严格为 ${input.size} 像素的图片。任何其他尺寸都是错误的。`
           : "";
-      const fullPrompt = input.prompt + sizeInstruction;
+      const fullPrompt = sizeInstruction
+        ? `${sizeInstruction}\n\n${input.prompt}`
+        : input.prompt;
       const messageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }> =
         referenceImages.length > 0
           ? [
