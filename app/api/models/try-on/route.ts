@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       sceneStyle,
       accessories,
       background,
+      aspectRatio,
     } = body;
 
     if (!modelTemplateId || !clothingType || !clothingImagePath) {
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
       sceneStyle,
       accessories,
       background,
+      aspectRatio,
     });
 
     // 4. Update with result

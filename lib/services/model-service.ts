@@ -239,6 +239,7 @@ export async function generateModelViews(params: {
   return results;
 }
 
+
 function buildTryOnPrompt(params: {
   clothingType: string;
   sceneStyle?: string;
@@ -268,6 +269,7 @@ export async function generateOutfitShot(params: {
   sceneStyle?: string;
   accessories?: string[];
   background?: string;
+  aspectRatio?: string;
 }) {
   const { adapter, provider } = await getProviderAdapter("image");
   const editModel = resolveImageModel(provider);
@@ -297,11 +299,12 @@ export async function generateOutfitShot(params: {
     background: params.background,
   });
 
+  const ar = params.aspectRatio || "9:16";
+
   const result = await adapter.generateImage({
     model: editModel,
     prompt,
-    size: "1024x1536",
-    aspectRatio: "9:16",
+    aspectRatio: ar as "9:16" | "3:4" | "1:1" | "4:3" | "16:9",
     referenceImages: [modelDataUrl, clothingDataUrl],
   });
 
