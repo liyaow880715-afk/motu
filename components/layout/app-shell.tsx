@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FolderKanban, GalleryVerticalEnd, History, Images, KeyRound, LayoutTemplate, LogOut, Menu, Settings2, X } from "lucide-react";
+import { FolderKanban, GalleryVerticalEnd, History, Images, KeyRound, LayoutTemplate, LogOut, Menu, Settings2, User, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { ApiUsageIndicator } from "@/components/layout/api-usage-indicator";
@@ -20,6 +20,7 @@ const navItems = [
   { href: "/projects/new", label: "高级创建", icon: GalleryVerticalEnd },
   { href: "/templates", label: "套版中心", icon: LayoutTemplate },
   { href: "/hero-batch", label: "批量主图", icon: Images },
+  { href: "/models", label: "模特库", icon: User },
 ];
 
 function KeyTypeBadge({ type }: { type: string | undefined }) {

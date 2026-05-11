@@ -55,6 +55,8 @@ enum TaskType {
   GENERATE
   REGENERATE
   EXPORT
+  MODEL_GENERATE
+  OUTFIT_GENERATE
 }
 
 enum TaskStatus {
@@ -239,6 +241,47 @@ model GenerationTask {
 
   @@index([projectId, createdAt])
   @@index([sectionId, createdAt])
+}
+
+model ModelTemplate {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  characterPrompt String
+  frontViewPath   String
+  backViewPath    String
+  sideViewPath    String
+  bodyType        String?       // slim / average / plus / athletic
+  heightCm        Int?
+  styleTags       Json?
+  seed            String?
+  metadata        Json?
+  outfits         OutfitShoot[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([bodyType])
+  @@index([createdAt])
+}
+
+model OutfitShoot {
+  id              String        @id @default(cuid())
+  modelTemplateId String
+  modelTemplate   ModelTemplate @relation(fields: [modelTemplateId], references: [id], onDelete: Cascade)
+  name            String
+  clothingType    String        // dress / top / pants / lingerie / stocking / etc
+  clothingAssets  Json          // [{assetId, type, filePath}]
+  resultImages    Json?         // [{angle, filePath, style}]
+  sceneStyle      String?       // studio / outdoor / indoor / minimal
+  accessories     Json?         // ["earrings", "handbag", "watch"]
+  background      String?
+  status          String        @default("draft") // draft / generating / completed
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([modelTemplateId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model AccessKey {
