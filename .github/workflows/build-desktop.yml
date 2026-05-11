@@ -71,12 +71,30 @@ jobs:
       - name: Generate Prisma Client
         run: npm run prisma:generate
 
-      - name: Build Mac DMG + ZIP
-        run: npm run dist:mac
+      - name: Build Mac ZIP
+        run: node ./node_modules/electron-builder/out/cli/cli.js --mac zip
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Mac DMG
+        id: build-dmg
+        continue-on-error: true
+        run: node ./node_modules/electron-builder/out/cli/cli.js --mac dmg
+        env:
+          DEBUG: electron-builder
+          ELECTRON_BUILDER_LOG_LEVEL: debug
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload DMG build log on failure
+        if: steps.build-dmg.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-build-log
+          path: ~/Library/Caches/electron-builder/**/*.log
 
       - name: List build outputs
         run: ls -la dist-desktop/
