@@ -215,6 +215,7 @@ scripts/        # build scripts
 
 ## 📖 Docs / 文档
 
+- **完整使用教程**: [docs/TUTORIAL.md](./docs/TUTORIAL.md) — AI 设置与生成详情页全流程指南
 - 中文文档: [README.zh-CN.md](./README.zh-CN.md)  
 - English Docs: [README.en.md](./README.en.md)
 

@@ -27,8 +27,16 @@ async function localConsume(key: string, machineId?: string | null) {
     return fail("KEY_EXPIRED", "激活码已过期", null, 403);
   }
 
+  // 非次卡（月卡/日卡）不需要消耗次数，直接返回成功
   if (accessKey.type !== "PER_USE") {
-    return fail("NOT_PER_USE", "只有次卡需要消耗次数", null, 400);
+    return ok({
+      id: accessKey.id,
+      key: accessKey.key,
+      type: accessKey.type,
+      usedCount: accessKey.usedCount,
+      activatedAt: accessKey.activatedAt?.toISOString() ?? null,
+      expiresAt: accessKey.expiresAt?.toISOString() ?? null,
+    });
   }
 
   if (accessKey.usedCount >= 1) {

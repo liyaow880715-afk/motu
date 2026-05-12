@@ -126,6 +126,8 @@ model ModelProfile {
   isDefaultHeroImage   Boolean        @default(false)
   isDefaultDetailImage Boolean        @default(false)
   isDefaultImageEdit   Boolean        @default(false)
+  isDefaultVideoScript Boolean        @default(false)
+  isDefaultVideoVLM    Boolean        @default(false)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 

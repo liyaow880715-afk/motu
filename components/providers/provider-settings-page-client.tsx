@@ -39,6 +39,8 @@ type ProviderPageData = Array<{
     isDefaultHeroImage: boolean;
     isDefaultDetailImage: boolean;
     isDefaultImageEdit: boolean;
+    isDefaultVideoScript: boolean;
+    isDefaultVideoVLM: boolean;
   }>;
 }>;
 

@@ -26,6 +26,15 @@
 /dist-desktop
 /release
 
+# runtime generated assets
+/public/product-images/
+/public/videos/
+/remotion/public/product-images/
+/remotion/out/
+/storage/
+*.db
+*.db-journal
+
 # misc
 .DS_Store
 *.pem

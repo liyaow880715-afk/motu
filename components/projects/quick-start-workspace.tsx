@@ -43,13 +43,29 @@ export function QuickStartWorkspace() {
       return;
     }
 
+    // 实时查询最新激活码信息（避免 store 缓存旧数据）
+    let currentKey = keyInfo?.key ?? null;
+    let currentKeyType = keyInfo?.type ?? null;
+    if (typeof window !== "undefined" && currentKey) {
+      try {
+        const platform = (window as any).electronAPI ? "desktop" : "web";
+        const meRes = await fetch(`/api/auth/me?key=${encodeURIComponent(currentKey)}&platform=${platform}`);
+        const meData = await meRes.json();
+        if (meData.success) {
+          currentKeyType = meData.data.type;
+        }
+      } catch {
+        // 查询失败时继续使用缓存的 keyInfo
+      }
+    }
+
     // Consume PER_USE key before creating project
-    if (keyInfo?.type === "PER_USE") {
+    if (currentKeyType === "PER_USE" && currentKey) {
       const machineId = typeof window !== "undefined" ? localStorage.getItem("bm_machine_id") : null;
       const consumeRes = await fetch("/api/auth/consume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: keyInfo.key, machineId }),
+        body: JSON.stringify({ key: currentKey, machineId }),
       });
       const consumeData = await consumeRes.json();
       if (!consumeData.success) {

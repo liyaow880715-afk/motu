@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Loader2, Sparkles } from "lucide-react";
+import { KeyRound, Loader2, Sparkles, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/hooks/use-auth-store";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -116,9 +117,18 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-slate-600">
-          没有激活码？请联系管理员获取
-        </p>
+        <div className="space-y-3 text-center">
+          <Link
+            href="/guide"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 transition-colors hover:text-white"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            查看使用说明（无需激活）
+          </Link>
+          <p className="text-xs text-slate-600">
+            没有激活码？请联系管理员获取
+          </p>
+        </div>
       </div>
     </div>
   );

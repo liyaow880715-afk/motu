@@ -50,7 +50,7 @@ function OutputConfigSummary({ config }: { config: PreviewConfig }) {
         </Badge>
         <Badge variant="success">
           <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          头图：{config.heroImageCount} 张
+          头图：{config.heroImageCount} 张（1:1）
         </Badge>
         <Badge variant="warning">
           <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" />

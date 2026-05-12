@@ -641,6 +641,25 @@ async function generateSectionImageInternal(
   const effectiveReferenceAssets = mergeReferenceAssets(project.assets as AssetRecord[], allExplicitAssets as AssetRecord[]);
   const referenceImages = await Promise.all(effectiveReferenceAssets.map((asset) => assetToDataUrl(asset)));
 
+  // Load selected model template images for clothing consistency
+  const modelSnapshot = (project.modelSnapshot as Record<string, unknown> | null) ?? {};
+  const selectedModelTemplateId = typeof modelSnapshot.selectedModelTemplateId === "string"
+    ? modelSnapshot.selectedModelTemplateId
+    : null;
+  let modelTemplateDataUrls: string[] = [];
+  if (selectedModelTemplateId) {
+    const modelTemplate = await prisma.modelTemplate.findUnique({
+      where: { id: selectedModelTemplateId },
+      select: { frontViewPath: true, backViewPath: true, sideViewPath: true },
+    });
+    if (modelTemplate) {
+      const paths = [modelTemplate.frontViewPath, modelTemplate.backViewPath, modelTemplate.sideViewPath]
+        .filter((p): p is string => Boolean(p));
+      const dataUrls = await Promise.all(paths.map((p) => urlToDataUrl(p)));
+      modelTemplateDataUrls = dataUrls.filter((d): d is string => d !== null);
+    }
+  }
+
   // Load template reference image for style guidance (方案B: 参考图引导生成)
   const templateReferenceImageUrl = ((section.editableData as Record<string, unknown> | null)?.templateReferenceImageUrl as string | undefined) ?? null;
   const position = ((section.editableData as Record<string, unknown> | null)?.position as { topPercent: number; bottomPercent: number } | undefined) ?? null;
@@ -735,10 +754,12 @@ async function generateSectionImageInternal(
         throw new Error("当前 Provider 没有探测到可用于真实图片生成的模型。");
       }
 
-      // 方案B: 把模板参考图加到 referenceImages 中（作为第一张参考图）
-      const allReferenceImages = templateReferenceImageDataUrl
-        ? [templateReferenceImageDataUrl, ...referenceImages]
-        : referenceImages;
+      // 方案B: 把模板参考图和模特库参考图加到 referenceImages 中（模板图优先，模特图其次，产品图最后）
+      const allReferenceImages = [
+        ...(templateReferenceImageDataUrl ? [templateReferenceImageDataUrl] : []),
+        ...modelTemplateDataUrls,
+        ...referenceImages,
+      ];
 
       const generation = await generateWithFallback({
         adapter,
@@ -937,6 +958,26 @@ export async function editSectionImage(
       .filter((asset) => asset.id !== section.currentImageAssetId)
       .map((asset) => assetToDataUrl(asset)),
   );
+
+  // Load selected model template images for clothing consistency
+  const editModelSnapshot = (project.modelSnapshot as Record<string, unknown> | null) ?? {};
+  const editSelectedModelTemplateId = typeof editModelSnapshot.selectedModelTemplateId === "string"
+    ? editModelSnapshot.selectedModelTemplateId
+    : null;
+  let editModelTemplateDataUrls: string[] = [];
+  if (editSelectedModelTemplateId) {
+    const editModelTemplate = await prisma.modelTemplate.findUnique({
+      where: { id: editSelectedModelTemplateId },
+      select: { frontViewPath: true, backViewPath: true, sideViewPath: true },
+    });
+    if (editModelTemplate) {
+      const paths = [editModelTemplate.frontViewPath, editModelTemplate.backViewPath, editModelTemplate.sideViewPath]
+        .filter((p): p is string => Boolean(p));
+      const dataUrls = await Promise.all(paths.map((p) => urlToDataUrl(p)));
+      editModelTemplateDataUrls = dataUrls.filter((d): d is string => d !== null);
+    }
+  }
+
   const editMode = options?.editMode ?? "repaint";
   const runningTask = await findRecentRunningTask({
     projectId,
@@ -988,6 +1029,8 @@ export async function editSectionImage(
         throw new Error("当前 Provider 没有探测到可用于真实图片编辑的模型。");
       }
 
+      const allEditReferenceImages = [...editModelTemplateDataUrls, ...referenceImages];
+
       const generation = await editWithFallback({
         adapter,
         candidateModels: modelCandidates,
@@ -995,7 +1038,7 @@ export async function editSectionImage(
         image: baseImage,
         size: outputSize,
         aspectRatio: sectionAspectRatio,
-        referenceImages,
+        referenceImages: allEditReferenceImages,
         projectId,
         sectionId,
         operation: editMode === "enhance" ? "enhance_section_image" : "repaint_section_image",

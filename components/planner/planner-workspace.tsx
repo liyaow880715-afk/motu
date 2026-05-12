@@ -117,6 +117,11 @@ function getGenerationSettings(project: any): GenerationSettings {
   };
 }
 
+function getSelectedModelTemplateId(project: any): string | null {
+  const raw = project?.modelSnapshot?.selectedModelTemplateId;
+  return typeof raw === "string" ? raw : null;
+}
+
 function progressPercent(progress: BulkProgressState | null) {
   if (!progress || progress.total === 0) {
     return 0;
@@ -136,6 +141,19 @@ function getGenerationLabel(section: any) {
   return "尚未生成";
 }
 
+function isClothingCategory(category: string, subcategory: string): boolean {
+  const text = `${category} ${subcategory}`.toLowerCase();
+  const keywords = [
+    "服装", "服饰", "衣服", "女装", "男装", "童装",
+    "上衣", "t恤", "衬衫", "裤子", "裙", "外套", "夹克",
+    "大衣", "风衣", "西装", "卫衣", "毛衣", "针织衫", "牛仔",
+    "汉服", "旗袍", "内衣", "睡衣", "运动服", "泳装", "打底",
+    "背心", "马甲", "工装", "休闲", "正装", "时装", "连衣",
+    "半裙", "长裤", "短裤", "半身裙", "吊带", "抹胸", " polo",
+  ];
+  return keywords.some((kw) => text.includes(kw));
+}
+
 export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
   const router = useRouter();
   const [projectState, setProjectState] = useState(project);
@@ -145,6 +163,8 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
   const [savingConfig, setSavingConfig] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<PreviewConfig>(getPreviewConfig(project));
   const [generationSettings, setGenerationSettings] = useState<GenerationSettings>(getGenerationSettings(project));
+  const [modelTemplates, setModelTemplates] = useState<Array<{ id: string; name: string; frontViewPath?: string | null }>>([]);
+  const [selectedModelTemplateId, setSelectedModelTemplateId] = useState<string | null>(getSelectedModelTemplateId(project));
   const [bulkProgress, setBulkProgress] = useState<BulkProgressState | null>(null);
   const [runningSectionId, setRunningSectionId] = useState<string | null>(null);
   const [planningProgress, setPlanningProgress] = useState<PlanningProgressState>({
@@ -153,6 +173,12 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
   });
   const [pendingDeleteSection, setPendingDeleteSection] = useState<{ id: string; type: "hero" | "detail" } | null>(null);
   const [deletingSection, setDeletingSection] = useState(false);
+
+  const isClothing = useMemo(() => {
+    const result = project?.analysis?.normalizedResult as Record<string, unknown> | undefined;
+    if (!result) return false;
+    return isClothingCategory(String(result.category ?? ""), String(result.subcategory ?? ""));
+  }, [project]);
 
   useEffect(() => {
     const isBusy = planning || bulkGenerating || savingConfig || Boolean(runningSectionId) || Boolean(deletingSection);
@@ -193,8 +219,53 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
       setSections(payload.data.sections ?? []);
       setPreviewConfig(getPreviewConfig(payload.data));
       setGenerationSettings(getGenerationSettings(payload.data));
+      setSelectedModelTemplateId(getSelectedModelTemplateId(payload.data));
     }
   };
+
+  const saveSelectedModelTemplate = async (modelTemplateId: string | null) => {
+    try {
+      const mergedSnapshot = {
+        ...(projectState.modelSnapshot ?? {}),
+        selectedModelTemplateId: modelTemplateId,
+      };
+
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modelSnapshot: mergedSnapshot,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!payload.success) {
+        throw new Error(payload.error?.message ?? "模特选择保存失败");
+      }
+
+      if (payload.data) {
+        setProjectState(payload.data);
+        setSelectedModelTemplateId(getSelectedModelTemplateId(payload.data));
+      }
+
+      toast.success(modelTemplateId ? "已绑定模特，生成时将保持人物一致性" : "已取消模特绑定");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "模特选择保存失败");
+    }
+  };
+
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((payload) => {
+        if (payload.success && Array.isArray(payload.data)) {
+          setModelTemplates(payload.data);
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
 
   const saveGenerationSettings = async (options?: { silent?: boolean; generationSettings?: GenerationSettings }) => {
     setSavingConfig(true);
@@ -639,10 +710,17 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
                 <div className="space-y-3 rounded-2xl border border-border bg-background p-4">
                   <div className="flex flex-wrap gap-2 text-sm">
                     <Badge variant="outline">内容语言：{contentLanguageLabels[previewConfig.contentLanguage]}</Badge>
-                    <Badge variant="outline">头图目标：{previewConfig.heroImageCount} 张</Badge>
+                    <Badge variant="outline">头图目标：{previewConfig.heroImageCount} 张（1:1）</Badge>
                     <Badge variant="outline">详情页目标：{previewConfig.detailSectionCount} 张</Badge>
                     <Badge variant="outline">详情图比例：{previewConfig.imageAspectRatio}</Badge>
                   </div>
+                  {isClothing ? (
+                    <NoticeCard
+                      variant="info"
+                      title="检测到服装类产品"
+                      description="系统将自动使用服装类固定详情页模板（11 个模块），并强制使用 3:4 比例生成详情图。执行 AI 规划后会自动覆盖当前配置。"
+                    />
+                  ) : null}
                   <div className="flex flex-wrap gap-2 text-sm">
                     <Badge variant={heroSections.length === previewConfig.heroImageCount ? "success" : "outline"}>
                       当前头图结构：{heroSections.length} 张
@@ -695,6 +773,65 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
                   <Save className="mr-2 h-4 w-4" />
                   {savingConfig ? "保存中..." : "保存生成设置"}
                 </Button>
+              </div>
+            </div>
+
+            {/* Model template selector */}
+            <div className="rounded-3xl border border-border bg-muted/40 p-4">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">全局模特选择</p>
+                  <p className="text-xs leading-6 text-muted-foreground">
+                    从模特库中选择一位模特，AI 生成包含人物的模块时会自动参考该模特保持人物一致性。
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <select
+                    className="flex h-10 flex-1 rounded-xl border border-input bg-white px-3 text-sm dark:bg-black/30 dark:text-slate-100"
+                    value={selectedModelTemplateId ?? ""}
+                    onChange={(event) => {
+                      const value = event.target.value || null;
+                      setSelectedModelTemplateId(value);
+                      void saveSelectedModelTemplate(value);
+                    }}
+                  >
+                    <option value="">不指定模特</option>
+                    {modelTemplates.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedModelTemplateId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedModelTemplateId(null);
+                        void saveSelectedModelTemplate(null);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {selectedModelTemplateId && (
+                  <div className="flex gap-2">
+                    {(() => {
+                      const model = modelTemplates.find((m) => m.id === selectedModelTemplateId);
+                      if (!model?.frontViewPath) return null;
+                      return (
+                        <img
+                          src={`/storage/${model.frontViewPath}`}
+                          alt={model.name}
+                          className="h-24 w-16 rounded-lg object-cover border border-border"
+                        />
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 {
   "name": "motu",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "private": true,
   "description": "AI e-commerce detail page generation and editing workspace",
   "author": "零禾（上海）网络科技有限公司",
@@ -21,7 +21,8 @@
     "remotion:studio": "npx remotion studio remotion/src/index.tsx",
     "remotion:render:product": "npx remotion render remotion/src/index.tsx ProductShowcase remotion/out/product-showcase.mp4",
     "remotion:render:framework": "npx remotion render remotion/src/index.tsx FrameworkDemo remotion/out/framework-demo.mp4",
-    "remotion:render:video": "npx remotion render remotion/src/index.tsx ProductVideo remotion/out/product-video.mp4"
+    "remotion:render:video": "npx remotion render remotion/src/index.tsx ProductVideo remotion/out/product-video.mp4",
+    "remotion:render:tutorial": "npx remotion render remotion/src/index.tsx TutorialVideo remotion/out/tutorial-video.mp4"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

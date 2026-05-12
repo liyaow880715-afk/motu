@@ -17,6 +17,8 @@ export const providerSaveSchema = providerInputSchema.extend({
       heroImageModelId: z.string().optional().nullable(),
       detailImageModelId: z.string().optional().nullable(),
       imageEditModelId: z.string().optional().nullable(),
+      videoScriptModelId: z.string().optional().nullable(),
+      videoVLMModelId: z.string().optional().nullable(),
     })
     .optional(),
   models: z

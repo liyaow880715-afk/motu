@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 
-import { buildSectionPlanningPrompt } from "@/lib/ai/prompts";
+import { buildSectionPlanningPrompt, buildClothingPlanningPrompt } from "@/lib/ai/prompts";
 import { sectionPlanOutputSchema } from "@/lib/ai/schemas/section-plan";
 import { prisma } from "@/lib/db/prisma";
 import { getProviderAdapter } from "@/lib/services/provider-service";
@@ -40,7 +40,7 @@ type NormalizedSection = {
 
 const previewConfigSchema = z.object({
   heroImageCount: z.number().int().min(3).max(5),
-  detailSectionCount: z.number().int().min(4).max(10),
+  detailSectionCount: z.number().int().min(4).max(15),
   imageAspectRatio: z.enum(["3:4", "9:16"]).default("9:16"),
   contentLanguage: z.enum(["zh-CN", "en-US", "ja-JP", "ko-KR"]).default("zh-CN"),
 });
@@ -243,6 +243,456 @@ const detailFallbackSections: Array<{
   },
 ];
 
+function isClothingCategory(category: string, subcategory: string): boolean {
+  const text = `${category} ${subcategory}`.toLowerCase();
+  const keywords = [
+    "服装", "服饰", "衣服", "女装", "男装", "童装",
+    "上衣", "t恤", "衬衫", "裤子", "裙", "外套", "夹克",
+    "大衣", "风衣", "西装", "卫衣", "毛衣", "针织衫", "牛仔",
+    "汉服", "旗袍", "内衣", "睡衣", "运动服", "泳装", "打底",
+    "背心", "马甲", "工装", "休闲", "正装", "时装", "连衣",
+    "半裙", "长裤", "短裤", "半身裙", "吊带", "抹胸", " Polo",
+  ];
+  return keywords.some((kw) => text.includes(kw));
+}
+
+function buildClothingFixedPlan(heroImageCount: number): NormalizedSection[] {
+  const heroes: NormalizedSection[] = [];
+  for (let i = 0; i < heroImageCount; i++) {
+    const template = heroFallbackSections[i % heroFallbackSections.length];
+    heroes.push({
+      sectionKey: `hero_${String(i + 1).padStart(2, "0")}`,
+      type: "HERO",
+      title: template.title,
+      goal: template.goal,
+      copy: template.copy,
+      visualPrompt: template.visualPrompt,
+      editableData: {
+        ...template.editableFields,
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+      order: i,
+    });
+  }
+
+  const clothingDetails: Array<Omit<NormalizedSection, "sectionKey" | "order">> = [
+    {
+      type: "SCENARIO",
+      title: "模特全身展示",
+      goal: "展示服装上身效果，帮助用户建立穿着想象。",
+      copy: "模特上身实拍，展示整体版型与搭配效果，直观呈现穿着气质。",
+      visualPrompt:
+        "中文提示：专业电商服装模特全身展示图，模特站立姿势自然，服装版型清晰可见，背景简洁干净，突出服装整体上身效果与搭配风格。请严格保持与参考图中模特一致的人物形象、发型、五官和身材比例。竖版 3:4 构图。\nEnglish Prompt: Full-body fashion model shot for e-commerce, natural standing pose, clear silhouette of the garment, clean minimal background. Strictly maintain the same model appearance, hairstyle, facial features, and body proportions as the reference image. Vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "专业展示",
+        compositionHint: "全身站姿",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "SELLING_POINTS",
+      title: "产品正反面展示",
+      goal: "完整展示服装正反面设计，让用户全面了解产品外观。",
+      copy: "正面与背面设计一目了然，完整呈现服装剪裁、版型与设计细节。",
+      visualPrompt:
+        "中文提示：电商服装产品平铺展示图，正反面并排排列，面料纹理清晰可见，背景为纯色或浅色，突出服装剪裁与版型设计，竖版 3:4 构图。\nEnglish Prompt: Flat-lay clothing product display showing front and back side by side, fabric texture visible, solid light background, highlighting cut and silhouette, vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "产品展示",
+        compositionHint: "正反面平铺并排",
+        sellingPoints: [],
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "DETAIL_CLOSEUP",
+      title: "设计细节展示",
+      goal: "突出服装工艺细节，建立品质信任感。",
+      copy: "领口、袖口、纽扣、缝线等细节精工细作，彰显品质与匠心。",
+      visualPrompt:
+        "中文提示：服装工艺细节特写图，聚焦领口、袖口、纽扣、缝线等特色设计，微距视角展现面料质感与做工细节，背景虚化简洁，竖版 3:4 构图。\nEnglish Prompt: Close-up detail shots of clothing craftsmanship, focusing on collar, cuffs, buttons, and stitching, macro perspective showing fabric texture and workmanship, clean blurred background, vertical 3:4 composition.",
+      editableData: {
+        tone: "品质细节",
+        compositionHint: "微距特写",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "MATERIAL",
+      title: "材质展示",
+      goal: "展示面料质感与成分，增强购买信心。",
+      copy: "优质面料，亲肤透气，触感细腻，穿着舒适安心。",
+      visualPrompt:
+        "中文提示：服装面料材质展示图，突出面料纹理、光泽与柔软质感，可搭配面料成分标签，背景干净简洁，竖版 3:4 构图。\nEnglish Prompt: Fabric material showcase for clothing, highlighting texture, sheen and tactile quality, with optional fabric composition label, clean background, vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "材质说明",
+        compositionHint: "面料纹理特写",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "SPECS",
+      title: "尺码表",
+      goal: "提供准确尺码信息，降低退换率。",
+      copy: "详细尺码对照表，肩宽、胸围、衣长、袖长一目了然，选购更安心。",
+      visualPrompt:
+        "中文提示：电商服装尺码信息图，包含尺码对照表与测量示意图，模特尺码参考，排版清晰专业，竖版 3:4 构图。\nEnglish Prompt: Clothing size chart e-commerce graphic with measurement diagram and size reference, clear professional typography, vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "专业说明",
+        compositionHint: "信息表格排版",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "SCENARIO",
+      title: "模特正面展示",
+      goal: "展示服装正面穿着效果，突出正面版型与设计。",
+      copy: "模特正面实拍，清晰呈现服装正面剪裁、版型与上身效果。",
+      visualPrompt:
+        "中文提示：电商服装模特正面展示图，模特正面站立姿势自然，服装正面版型与设计细节清晰可见，背景简洁干净，突出服装正面效果。请严格保持与参考图中模特一致的人物形象、发型、五官和身材比例。竖版 3:4 构图。\nEnglish Prompt: Front-view fashion model shot for e-commerce, natural frontal standing pose, clear view of the garment's front silhouette and design details, clean minimal background. Strictly maintain the same model appearance, hairstyle, facial features, and body proportions as the reference image. Vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "正面展示",
+        compositionHint: "正面站姿",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "SCENARIO",
+      title: "模特背面展示",
+      goal: "展示服装背面穿着效果，突出背面版型与设计。",
+      copy: "模特背面实拍，清晰呈现服装背面剪裁、版型与上身效果。",
+      visualPrompt:
+        "中文提示：电商服装模特背面展示图，模特背面站立姿势自然，服装背面版型与设计细节清晰可见，背景简洁干净，突出服装背面效果。请严格保持与参考图中模特一致的人物形象、发型、五官和身材比例。竖版 3:4 构图。\nEnglish Prompt: Back-view fashion model shot for e-commerce, natural back-facing standing pose, clear view of the garment's back silhouette and design details, clean minimal background. Strictly maintain the same model appearance, hairstyle, facial features, and body proportions as the reference image. Vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "背面展示",
+        compositionHint: "背面站姿",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "SCENARIO",
+      title: "模特侧身展示",
+      goal: "展示服装侧身穿着效果，突出侧面版型与线条。",
+      copy: "模特侧身实拍，清晰呈现服装侧面剪裁、版型与线条感。",
+      visualPrompt:
+        "中文提示：电商服装模特侧身展示图，模特侧身站立姿势自然，服装侧身版型与线条细节清晰可见，背景简洁干净，突出服装侧身效果。请严格保持与参考图中模特一致的人物形象、发型、五官和身材比例。竖版 3:4 构图。\nEnglish Prompt: Side-view fashion model shot for e-commerce, natural side-facing standing pose, clear view of the garment's side silhouette and line details, clean minimal background. Strictly maintain the same model appearance, hairstyle, facial features, and body proportions as the reference image. Vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "侧身展示",
+        compositionHint: "侧身站姿",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "DETAIL_CLOSEUP",
+      title: "产品正面大图",
+      goal: "高清展示服装正面全貌，建立产品信任。",
+      copy: "高清大图呈现服装正面全貌，细节清晰可见，所见即所得。",
+      visualPrompt:
+        "中文提示：电商服装产品正面高清大图，服装正面全貌完整呈现，面料纹理与剪裁细节清晰，纯色背景突出产品本身，竖版 3:4 构图。\nEnglish Prompt: High-resolution front-view clothing product shot, complete front silhouette with clear fabric texture and cut details, solid color background emphasizing the product, vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "高清展示",
+        compositionHint: "正面全貌",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "DETAIL_CLOSEUP",
+      title: "产品背面大图",
+      goal: "高清展示服装背面全貌，完善产品信息。",
+      copy: "高清大图呈现服装背面全貌，背面设计与细节清晰可见。",
+      visualPrompt:
+        "中文提示：电商服装产品背面高清大图，服装背面全貌完整呈现，背面设计与面料细节清晰，纯色背景突出产品本身，竖版 3:4 构图。\nEnglish Prompt: High-resolution back-view clothing product shot, complete back silhouette with clear back design and fabric details, solid color background emphasizing the product, vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "高清展示",
+        compositionHint: "背面全貌",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+    {
+      type: "DETAIL_CLOSEUP",
+      title: "产品细节大图",
+      goal: "高清展示服装关键细节，增强品质信任。",
+      copy: "高清大图聚焦服装关键细节，工艺与材质一目了然。",
+      visualPrompt:
+        "中文提示：电商服装产品细节高清大图，聚焦关键细节如缝线、面料纹理、标签等，微距视角展现品质，纯色背景简洁干净，竖版 3:4 构图。\nEnglish Prompt: High-resolution clothing product detail shot, focusing on key details like stitching, fabric texture, and labels, macro perspective showcasing quality, solid color background, vertical 3:4 mobile composition.",
+      editableData: {
+        tone: "高清展示",
+        compositionHint: "细节特写",
+        mainTitle: "",
+        subTitle: "",
+        layout: "",
+        visualDescription: "",
+        negativePrompt: "",
+        colorScheme: null,
+        whitespaceRatio: 35,
+      },
+    },
+  ];
+
+  const details = clothingDetails.map((d, i) => ({
+    ...d,
+    sectionKey: `detail_${String(i + 1).padStart(2, "0")}_${d.type.toLowerCase()}`,
+    order: heroes.length + i,
+  }));
+
+  return [...heroes, ...details];
+}
+
+function postProcessClothingVisualPrompt(prompt: string, moduleTitle: string): string {
+  let result = prompt.trim();
+  if (!result) return result;
+
+  // Ensure 3:4 aspect ratio
+  if (!result.includes("3:4") && !result.includes("3：4")) {
+    result = result.replace(
+      /(English Prompt:[\s\S]*?)(\s*$)/i,
+      "$1 Vertical 3:4 mobile composition.$2",
+    );
+    result = result.replace(
+      /(中文提示：[\s\S]*?)(\s*English Prompt:)/i,
+      "$1 竖版 3:4 构图。$2",
+    );
+    if (!result.includes("3:4") && !result.includes("3：4")) {
+      result += "\n中文提示：竖版 3:4 构图。\nEnglish Prompt: Vertical 3:4 mobile composition.";
+    }
+  }
+
+  // Ensure model consistency for model-related modules
+  const modelRelatedKeywords = ["模特全身", "模特正面", "模特背面", "模特侧身"];
+  const isModelRelated = modelRelatedKeywords.some((kw) => moduleTitle.includes(kw));
+  if (isModelRelated) {
+    const consistencyCn = "请严格保持与参考图中模特一致的人物形象、发型、五官和身材比例。";
+    const consistencyEn = "Strictly maintain the same model appearance, hairstyle, facial features, and body proportions as the reference image.";
+    if (!result.includes(consistencyCn)) {
+      result = result.replace(
+        /(中文提示：[\s\S]*?)(\s*English Prompt:)/i,
+        `$1${consistencyCn}$2`,
+      );
+    }
+    if (!result.includes(consistencyEn)) {
+      result = result.replace(
+        /(English Prompt:[\s\S]*?)(\s*$)/i,
+        `$1 ${consistencyEn}$2`,
+      );
+    }
+  }
+
+  return result;
+}
+
+function buildClothingSections(
+  rawSections: RawPlannedSection[],
+  heroImageCount: number,
+): NormalizedSection[] {
+  const clothingModuleTypes = [
+    "SCENARIO",       // 模特全身展示
+    "SELLING_POINTS", // 产品正反面展示
+    "DETAIL_CLOSEUP", // 设计细节展示
+    "MATERIAL",       // 材质展示
+    "SPECS",          // 尺码表
+    "SCENARIO",       // 模特正面展示
+    "SCENARIO",       // 模特背面展示
+    "SCENARIO",       // 模特侧身展示
+    "DETAIL_CLOSEUP", // 产品正面大图
+    "DETAIL_CLOSEUP", // 产品背面大图
+    "DETAIL_CLOSEUP", // 产品细节大图
+  ];
+
+  const clothingModuleTitles = [
+    "模特全身展示",
+    "产品正反面展示",
+    "设计细节展示",
+    "材质展示",
+    "尺码表",
+    "模特正面展示",
+    "模特背面展示",
+    "模特侧身展示",
+    "产品正面大图",
+    "产品背面大图",
+    "产品细节大图",
+  ];
+
+  // Normalize AI-returned sections
+  const normalized = rawSections.map((section) => {
+    const editableFields = normalizeEditableFields(section.editableFields);
+    return {
+      type: normalizeSectionType(section.type),
+      title: section.title || "",
+      goal: section.goal || "",
+      copy: section.copy || "",
+      visualPrompt: ensureBilingualPrompt(section.visualPrompt || "", section.title || ""),
+      editableData: {
+        ...editableFields,
+        mainTitle: (section as any).mainTitle || "",
+        subTitle: (section as any).subTitle || "",
+        layout: (section as any).layout || "",
+        visualDescription: (section as any).visualDescription || "",
+        negativePrompt: (section as any).negativePrompt || "",
+        colorScheme: (section as any).colorScheme || null,
+        whitespaceRatio: (section as any).whitespaceRatio || 35,
+      },
+    };
+  });
+
+  const heroPool = normalized.filter((s) => s.type === "HERO");
+  const detailPool = normalized.filter((s) => s.type !== "HERO");
+
+  // Build heroes
+  const finalHeroes: NormalizedSection[] = [];
+  for (let i = 0; i < heroImageCount; i++) {
+    const aiHero = heroPool[i];
+    if (aiHero) {
+      // Force hero visualPrompt to 1:1 (AI may incorrectly put 3:4)
+      let heroPrompt = aiHero.visualPrompt;
+      if (heroPrompt) {
+        heroPrompt = heroPrompt
+          .replace(/竖版\s*3:4\s*构图/g, "正方形 1:1 构图")
+          .replace(/vertical\s*3:4\s*mobile\s*composition/gi, "square 1:1 composition")
+          .replace(/3:4/g, "1:1")
+          .replace(/3：4/g, "1：1");
+      }
+      finalHeroes.push({
+        ...aiHero,
+        visualPrompt: heroPrompt,
+        sectionKey: `hero_${String(i + 1).padStart(2, "0")}`,
+        order: i,
+      });
+    } else {
+      const fallback = heroFallbackSections[i % heroFallbackSections.length];
+      finalHeroes.push({
+        sectionKey: `hero_${String(i + 1).padStart(2, "0")}`,
+        type: "HERO",
+        title: fallback.title,
+        goal: fallback.goal,
+        copy: fallback.copy,
+        visualPrompt: fallback.visualPrompt,
+        editableData: {
+          ...fallback.editableFields,
+          mainTitle: "",
+          subTitle: "",
+          layout: "",
+          visualDescription: "",
+          negativePrompt: "",
+          colorScheme: null,
+          whitespaceRatio: 35,
+        },
+        order: i,
+      });
+    }
+  }
+
+  // Build fixed-structure detail modules with AI-generated content
+  const finalDetails: NormalizedSection[] = [];
+  for (let i = 0; i < clothingModuleTypes.length; i++) {
+    const fixedType = clothingModuleTypes[i];
+    const fixedTitle = clothingModuleTitles[i];
+    const aiDetail = detailPool[i];
+
+    let title = fixedTitle;
+    let goal = "";
+    let copy = "";
+    let visualPrompt = "";
+    let editableData: Record<string, unknown> = {
+      mainTitle: "",
+      subTitle: "",
+      layout: "",
+      visualDescription: "",
+      negativePrompt: "",
+      colorScheme: null,
+      whitespaceRatio: 35,
+    };
+
+    if (aiDetail) {
+      title = aiDetail.title.includes(fixedTitle) ? aiDetail.title : `${fixedTitle} · ${aiDetail.title}`;
+      if (!aiDetail.title || aiDetail.title.trim() === "") title = fixedTitle;
+      goal = aiDetail.goal;
+      copy = aiDetail.copy;
+      visualPrompt = aiDetail.visualPrompt;
+      editableData = aiDetail.editableData;
+    }
+
+    visualPrompt = postProcessClothingVisualPrompt(visualPrompt, fixedTitle);
+
+    finalDetails.push({
+      sectionKey: `detail_${String(i + 1).padStart(2, "0")}_${fixedType.toLowerCase()}`,
+      type: fixedType,
+      title,
+      goal,
+      copy,
+      visualPrompt,
+      editableData,
+      order: finalHeroes.length + i,
+    });
+  }
+
+  return [...finalHeroes, ...finalDetails];
+}
+
 const sectionTypeMap: Record<string, string> = {
   hero: "HERO",
   pain_point: "SCENARIO",
@@ -398,8 +848,8 @@ async function assertSectionMutationAllowed(projectId: string, options: { adding
       }
       heroCount += 1;
     } else {
-      if (detailCount >= 10) {
-        throw new Error("详情页最多保留 10 张，请先删除或改成头图后再新增。");
+      if (detailCount >= 15) {
+        throw new Error("详情页最多保留 15 张，请先删除或改成头图后再新增。");
       }
       detailCount += 1;
     }
@@ -437,8 +887,8 @@ async function assertSectionMutationAllowed(projectId: string, options: { adding
         if (heroCount <= 3) {
           throw new Error("头图至少保留 3 张，不能把当前头图改成详情页。");
         }
-        if (detailCount >= 10) {
-          throw new Error("详情页最多保留 10 张，请先删除多余详情页后再转换。");
+        if (detailCount >= 15) {
+          throw new Error("详情页最多保留 15 张，请先删除多余详情页后再转换。");
         }
       }
 
@@ -718,38 +1168,80 @@ export async function planSections(
   });
 
   try {
-    const prompt = buildSectionPlanningPrompt(
-      project.analysis.normalizedResult as never,
-      project.style,
-      project.platform,
-      previewConfig.detailSectionCount,
-      previewConfig.heroImageCount,
-      previewConfig.contentLanguage,
-    );
-
-    const result = await adapter.generateStructured({
-      model,
-      systemPrompt: "Return strict JSON only. sections must be complete.",
-      userPrompt: prompt,
-      schema: sectionPlanOutputSchema,
-      timeoutMs: 300000,
-      monitor: {
-        projectId,
-        operation: "section_planning",
-      }
-    });
-
     await prisma.pageSection.deleteMany({ where: { projectId } });
 
-    const rawSections = Array.isArray(result.parsed.sections) ? result.parsed.sections : [];
-    const sections =
-      rawSections.length > 0
-        ? buildNormalizedSections(
-            rawSections,
-            previewConfig.heroImageCount,
-            previewConfig.detailSectionCount,
-          )
-        : buildFallbackPlanFromTemplates(previewConfig.heroImageCount, previewConfig.detailSectionCount);
+    const analysisResult = project.analysis.normalizedResult as Record<string, unknown>;
+    const isClothing = isClothingCategory(
+      String(analysisResult.category ?? ""),
+      String(analysisResult.subcategory ?? ""),
+    );
+
+    let sections: NormalizedSection[];
+
+    if (isClothing) {
+      const clothingPrompt = buildClothingPlanningPrompt(
+        project.analysis.normalizedResult as never,
+        project.style,
+        project.platform,
+        previewConfig.heroImageCount,
+        previewConfig.contentLanguage,
+      );
+
+      const clothingResult = await adapter.generateStructured({
+        model,
+        systemPrompt: "Return strict JSON only. sections must be complete. Follow the fixed clothing module structure exactly.",
+        userPrompt: clothingPrompt,
+        schema: sectionPlanOutputSchema,
+        timeoutMs: 300000,
+        monitor: {
+          projectId,
+          operation: "clothing_section_planning",
+        },
+      });
+
+      const rawClothingSections = Array.isArray(clothingResult.parsed.sections)
+        ? clothingResult.parsed.sections
+        : [];
+
+      sections =
+        rawClothingSections.length > 0
+          ? buildClothingSections(rawClothingSections, previewConfig.heroImageCount)
+          : buildClothingFixedPlan(previewConfig.heroImageCount);
+
+      previewConfig = { ...previewConfig, detailSectionCount: 11, imageAspectRatio: "3:4" as const };
+      previewDecisionReason = "服装类产品，AI 智能规划固定详情页模块模板（3:4 比例）。";
+    } else {
+      const prompt = buildSectionPlanningPrompt(
+        project.analysis.normalizedResult as never,
+        project.style,
+        project.platform,
+        previewConfig.detailSectionCount,
+        previewConfig.heroImageCount,
+        previewConfig.contentLanguage,
+      );
+
+      const result = await adapter.generateStructured({
+        model,
+        systemPrompt: "Return strict JSON only. sections must be complete.",
+        userPrompt: prompt,
+        schema: sectionPlanOutputSchema,
+        timeoutMs: 300000,
+        monitor: {
+          projectId,
+          operation: "section_planning",
+        }
+      });
+
+      const rawSections = Array.isArray(result.parsed.sections) ? result.parsed.sections : [];
+      sections =
+        rawSections.length > 0
+          ? buildNormalizedSections(
+              rawSections,
+              previewConfig.heroImageCount,
+              previewConfig.detailSectionCount,
+            )
+          : buildFallbackPlanFromTemplates(previewConfig.heroImageCount, previewConfig.detailSectionCount);
+    }
 
     await prisma.pageSection.createMany({
       data: sections.map((section) => ({

@@ -21,6 +21,8 @@ type RuntimeProviderModel = {
   isDefaultHeroImage: boolean;
   isDefaultDetailImage: boolean;
   isDefaultImageEdit: boolean;
+  isDefaultVideoScript: boolean;
+  isDefaultVideoVLM: boolean;
   createdAt: Date;
   updatedAt: Date;
   endpointSupport: {
@@ -183,6 +185,8 @@ async function replaceProviderModels(
     heroImageModelId?: string | null;
     detailImageModelId?: string | null;
     imageEditModelId?: string | null;
+    videoScriptModelId?: string | null;
+    videoVLMModelId?: string | null;
   },
 ) {
   await prisma.modelProfile.deleteMany({
@@ -205,6 +209,8 @@ async function replaceProviderModels(
       isDefaultHeroImage: defaults.heroImageModelId === model.modelId,
       isDefaultDetailImage: defaults.detailImageModelId === model.modelId,
       isDefaultImageEdit: defaults.imageEditModelId === model.modelId,
+      isDefaultVideoScript: defaults.videoScriptModelId === model.modelId,
+      isDefaultVideoVLM: defaults.videoVLMModelId === model.modelId,
     })),
   });
 }
@@ -270,6 +276,8 @@ export async function saveProviderConfig(
       heroImageModelId?: string | null;
       detailImageModelId?: string | null;
       imageEditModelId?: string | null;
+      videoScriptModelId?: string | null;
+      videoVLMModelId?: string | null;
     };
     models?: Array<{
       modelId: string;

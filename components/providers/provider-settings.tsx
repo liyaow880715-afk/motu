@@ -48,6 +48,8 @@ type ProviderModelRecord = {
   isDefaultHeroImage: boolean;
   isDefaultDetailImage: boolean;
   isDefaultImageEdit: boolean;
+  isDefaultVideoScript: boolean;
+  isDefaultVideoVLM: boolean;
 };
 
 type ProviderRecord = {
@@ -73,6 +75,8 @@ type DefaultAssignments = {
   heroImageModelId: string;
   detailImageModelId: string;
   imageEditModelId: string;
+  videoScriptModelId: string;
+  videoVLMModelId: string;
 };
 
 type GenericModelRecord = Record<string, any>;
@@ -80,11 +84,15 @@ type GenericModelRecord = Record<string, any>;
 const roleFieldLabels: Array<[keyof DefaultAssignments, string]> = [
   ["analysisModelId", "文本模型（分析 + 规划）"],
   ["heroImageModelId", "图片模型（头图 + 详情 + 编辑）"],
+  ["videoScriptModelId", "视频文案模型（分镜 + 脚本）"],
+  ["videoVLMModelId", "视频视觉模型（视频 / 图片分析）"],
 ];
 
 const secondaryAssignments: Record<string, Array<keyof DefaultAssignments>> = {
   analysisModelId: ["planningModelId"],
   heroImageModelId: ["detailImageModelId", "imageEditModelId"],
+  videoScriptModelId: [],
+  videoVLMModelId: [],
 };
 
 function buildDefaults(provider: ProviderRecord | null): DefaultAssignments {
@@ -94,6 +102,8 @@ function buildDefaults(provider: ProviderRecord | null): DefaultAssignments {
     heroImageModelId: provider?.models.find((item) => item.isDefaultHeroImage)?.modelId ?? "",
     detailImageModelId: provider?.models.find((item) => item.isDefaultDetailImage)?.modelId ?? "",
     imageEditModelId: provider?.models.find((item) => item.isDefaultImageEdit)?.modelId ?? "",
+    videoScriptModelId: provider?.models.find((item) => item.isDefaultVideoScript)?.modelId ?? "",
+    videoVLMModelId: provider?.models.find((item) => item.isDefaultVideoVLM)?.modelId ?? "",
   };
 }
 
@@ -114,8 +124,12 @@ function getEndpointBadge(status: string) {
 }
 
 function canUseForRole(model: GenericModelRecord, roleKey: keyof DefaultAssignments) {
-  if (roleKey === "analysisModelId" || roleKey === "planningModelId") {
+  if (roleKey === "analysisModelId" || roleKey === "planningModelId" || roleKey === "videoScriptModelId") {
     return Boolean(model.capabilities?.text);
+  }
+
+  if (roleKey === "videoVLMModelId") {
+    return Boolean(model.capabilities?.vision) && Boolean(model.capabilities?.text);
   }
 
   if (roleKey === "heroImageModelId" || roleKey === "detailImageModelId" || roleKey === "imageEditModelId") {
@@ -216,8 +230,19 @@ function ProviderConfigPanel({
     [models],
   );
 
-  const relevantRoleField = purpose === "text" ? "analysisModelId" : "heroImageModelId";
-  const relevantRoleLabel = purpose === "text" ? "文本模型（分析 + 规划）" : "图片模型（头图 + 详情 + 编辑）";
+  const roleFieldsForPurpose: Array<{ key: keyof DefaultAssignments; label: string }> =
+    purpose === "text"
+      ? [
+          { key: "analysisModelId", label: "文本模型（分析 + 规划）" },
+          { key: "planningModelId", label: "规划模型（细分规划）" },
+          { key: "videoScriptModelId", label: "视频文案模型（分镜 + 脚本）" },
+          { key: "videoVLMModelId", label: "视频视觉模型（视频 / 图片分析）" },
+        ]
+      : [
+          { key: "heroImageModelId", label: "图片模型（头图生成）" },
+          { key: "detailImageModelId", label: "详情图模型" },
+          { key: "imageEditModelId", label: "图片编辑模型" },
+        ];
 
   async function handleActivateProvider(providerId: string) {
     setSwitchingProviderId(providerId);
@@ -325,15 +350,17 @@ function ProviderConfigPanel({
     // Auto-select as default if this is the first model
     setDefaults((current) => {
       const next = { ...current };
-      if (!next[relevantRoleField] && canUseForRole(newModel, relevantRoleField)) {
-        next[relevantRoleField] = id;
-        const secondaries = secondaryAssignments[relevantRoleField];
-        if (secondaries) {
-          secondaries.forEach((secondaryKey) => {
-            next[secondaryKey] = id;
-          });
+      roleFieldsForPurpose.forEach(({ key }) => {
+        if (!next[key] && canUseForRole(newModel, key)) {
+          next[key] = id;
+          const secondaries = secondaryAssignments[key];
+          if (secondaries) {
+            secondaries.forEach((secondaryKey) => {
+              next[secondaryKey] = id;
+            });
+          }
         }
-      }
+      });
       return next;
     });
 
@@ -620,40 +647,42 @@ function ProviderConfigPanel({
             </div>
           ) : null}
 
-          <div className="space-y-2">
-            <Label>{relevantRoleLabel}</Label>
-            <select
-              className="flex h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground dark:bg-black/30"
-              value={defaults[relevantRoleField] ?? ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                setDefaults((current) => {
-                  const next = { ...current, [relevantRoleField]: value };
-                  const secondaries = secondaryAssignments[relevantRoleField];
-                  if (secondaries) {
-                    secondaries.forEach((secondaryKey) => {
-                      next[secondaryKey] = value;
-                    });
-                  }
-                  return next;
-                });
-              }}
-            >
-              <option value="">未选择</option>
-              {models.map((model) => {
-                const disabled = !canUseForRole(model, relevantRoleField);
-                const unavailableSuffix =
-                  relevantRoleField === "heroImageModelId" && disabled ? "（不适合作为真实图片默认模型）" : "";
+          {roleFieldsForPurpose.map(({ key, label }) => (
+            <div key={key} className="space-y-2">
+              <Label>{label}</Label>
+              <select
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground dark:bg-black/30"
+                value={defaults[key] ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setDefaults((current) => {
+                    const next = { ...current, [key]: value };
+                    const secondaries = secondaryAssignments[key];
+                    if (secondaries) {
+                      secondaries.forEach((secondaryKey) => {
+                        next[secondaryKey] = value;
+                      });
+                    }
+                    return next;
+                  });
+                }}
+              >
+                <option value="">未选择</option>
+                {models.map((model) => {
+                  const disabled = !canUseForRole(model, key);
+                  const unavailableSuffix =
+                    key === "heroImageModelId" && disabled ? "（不适合作为真实图片默认模型）" : "";
 
-                return (
-                  <option key={model.modelId} value={model.modelId} disabled={disabled}>
-                    {model.label}
-                    {unavailableSuffix}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+                  return (
+                    <option key={model.modelId} value={model.modelId} disabled={disabled}>
+                      {model.label}
+                      {unavailableSuffix}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          ))}
         </div>
       ) : null}
 
