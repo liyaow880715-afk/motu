@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
           // If image is very large, resize and compress
           if (width > 1200 || height > 3000 || buffer.length > 1024 * 1024) {
-            console.log(`[TemplateAnalyze] Compressing image: ${width}x${height}, ${(buffer.length / 1024).toFixed(0)}KB`);
+            // Image compression in progress
             buffer = (await sharp(buffer)
               .resize({
                 width: Math.min(width, 1200),
@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
               })
               .jpeg({ quality: 80, progressive: true })
               .toBuffer()) as Buffer;
-            console.log(`[TemplateAnalyze] Compressed to: ${(buffer.length / 1024).toFixed(0)}KB`);
+            // Image compression complete
           }
         } catch (err) {
-          console.log("[TemplateAnalyze] Sharp compression skipped:", err);
+          // Sharp compression skipped
         }
 
         const ext = "jpg";

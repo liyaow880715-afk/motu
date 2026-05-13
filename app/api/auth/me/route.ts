@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db/prisma";
 import { env } from "@/lib/utils/env";
 import { handleRouteError, ok, fail } from "@/lib/utils/route";
 import { remoteGetMe } from "@/lib/services/remote-auth";
-import { getCreditBalance } from "@/lib/services/credit-service";
 
 async function localGetMe(key: string, machineId?: string | null) {
   const accessKey = await prisma.accessKey.findUnique({
@@ -55,10 +54,31 @@ export async function GET(request: NextRequest) {
         );
       }
       const data = remoteRes.data;
-    if (data && env.AUTH_SERVER_URL) {
-      data.balance = await getCreditBalance(key);
-    }
-    return ok(data);
+      // Sync remote key to local DB for credit tracking if not exists
+      if (data) {
+        await prisma.accessKey.upsert({
+          where: { key },
+          update: {
+            balance: data.balance ?? 0,
+            totalUsedCredits: data.totalUsedCredits ?? 0,
+            activatedAt: data.activatedAt ? new Date(data.activatedAt) : undefined,
+            expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+            machineId: machineId || undefined,
+          },
+          create: {
+            key: data.key,
+            type: data.type,
+            platform: data.platform,
+            label: data.label || null,
+            balance: data.balance ?? 0,
+            totalUsedCredits: data.totalUsedCredits ?? 0,
+            activatedAt: data.activatedAt ? new Date(data.activatedAt) : null,
+            expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+            machineId: machineId || null,
+          },
+        });
+      }
+      return ok(data);
     }
 
     // Otherwise use local database

@@ -388,12 +388,13 @@ export async function logApiUsage(params: {
   const modelText = entry.model ?? "unknown-model";
   const statusText = `${entry.success ? "OK" : "FAIL"} ${entry.statusCode}`;
 
-  console.log(
-    `[AI Monitor] ${entry.method} ${entry.endpoint} | model=${modelText} | ${statusText} | ${entry.durationMs}ms | ${tokenText} | ${costText}`,
-  );
-
-  if (entry.errorMessage) {
-    console.log(`[AI Monitor] error=${entry.errorMessage}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[AI Monitor] ${entry.method} ${entry.endpoint} | model=${modelText} | ${statusText} | ${entry.durationMs}ms | ${tokenText} | ${costText}`,
+    );
+    if (entry.errorMessage) {
+      console.log(`[AI Monitor] error=${entry.errorMessage}`);
+    }
   }
 
   return entry;

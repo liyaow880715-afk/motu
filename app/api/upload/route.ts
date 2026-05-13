@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 
 import { saveUploadAsset } from "@/lib/storage/asset-manager";
-import { handleRouteError, ok } from "@/lib/utils/route";
+import { handleRouteError, ok, fail } from "@/lib/utils/route";
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +14,10 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       throw new Error("file is required");
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return fail("FILE_TOO_LARGE", `文件大小超过限制 (${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB)`, null, 413);
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());

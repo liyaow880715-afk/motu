@@ -10,23 +10,25 @@ export async function checkAndDeductCredits(accessKey: string, amount?: number) 
 
   const key = await prisma.accessKey.findUnique({
     where: { key: accessKey },
+    select: { id: true, balance: true },
   });
 
   if (!key) {
     throw new Error("激活码不存在");
   }
 
-  if (key.balance < cost) {
-    throw new Error(`积分不足，当前余额 ${key.balance}，需要 ${cost}`);
-  }
-
-  await prisma.accessKey.update({
-    where: { id: key.id },
+  // Atomic update: only succeed if balance >= cost (race-condition safe)
+  const updated = await prisma.accessKey.updateMany({
+    where: { id: key.id, balance: { gte: cost } },
     data: {
       balance: { decrement: cost },
       totalUsedCredits: { increment: cost },
     },
   });
+
+  if (updated.count === 0) {
+    throw new Error(`积分不足，当前余额 ${key.balance}，需要 ${cost}`);
+  }
 
   return key.balance - cost;
 }

@@ -667,7 +667,7 @@ async function generateSectionImageInternal(
   if (templateReferenceImageUrl) {
     templateReferenceImageDataUrl = await urlToDataUrl(templateReferenceImageUrl);
     if (templateReferenceImageDataUrl) {
-      console.log("[TemplateRef] Loaded template reference image for style guidance:", templateReferenceImageUrl);
+      // Template reference image loaded successfully
 
       // 长图自动切割：按模块位置裁剪参考图
       if (position && templateReferenceImageDataUrl.startsWith("data:")) {
@@ -687,10 +687,10 @@ async function generateSectionImageInternal(
               .jpeg({ quality: 85 })
               .toBuffer();
             templateReferenceImageDataUrl = `data:image/jpeg;base64,${cropped.toString("base64")}`;
-            console.log(`[TemplateRef] Cropped module reference: ${width}x${minHeight} (top:${top}, ${position.topPercent}-${position.bottomPercent})`);
+            // Cropped module reference image
           }
         } catch (err) {
-          console.error("[TemplateRef] Failed to crop reference image:", err);
+          // Failed to crop reference image - continue with original
         }
       }
     }

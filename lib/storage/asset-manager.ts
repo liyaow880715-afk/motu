@@ -176,10 +176,19 @@ export function assetPublicUrl(asset: Pick<ProductAsset, "filePath"> | null | un
   return relativeStorageUrl(asset.filePath);
 }
 
+function resolveSafePath(relativePath: string) {
+  const target = path.resolve(rootDir(), relativePath);
+  const root = path.resolve(rootDir());
+  if (!target.startsWith(root + path.sep) && target !== root) {
+    throw new Error("Access denied: path traversal detected");
+  }
+  return target;
+}
+
 export async function readStorageFile(relativePath: string) {
-  return fs.readFile(path.join(rootDir(), relativePath));
+  return fs.readFile(resolveSafePath(relativePath));
 }
 
 export async function statStorageFile(relativePath: string) {
-  return fs.stat(path.join(rootDir(), relativePath));
+  return fs.stat(resolveSafePath(relativePath));
 }

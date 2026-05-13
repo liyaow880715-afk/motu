@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db/prisma";
 import { env } from "@/lib/utils/env";
 import { handleRouteError, ok, fail } from "@/lib/utils/route";
 import { remoteVerify } from "@/lib/services/remote-auth";
-import { getCreditBalance } from "@/lib/services/credit-service";
 
 const verifySchema = z.object({
   key: z.string().min(1, "请输入激活码"),
@@ -104,8 +103,29 @@ export async function POST(request: NextRequest) {
         );
       }
       const data = remoteRes.data;
-      if (data && env.AUTH_SERVER_URL) {
-        data.balance = await getCreditBalance(parsed.key);
+      // Sync remote key to local DB for credit tracking if not exists
+      if (data) {
+        await prisma.accessKey.upsert({
+          where: { key: parsed.key },
+          update: {
+            balance: data.balance ?? 0,
+            totalUsedCredits: data.totalUsedCredits ?? 0,
+            activatedAt: data.activatedAt ? new Date(data.activatedAt) : undefined,
+            expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+            machineId: parsed.machineId || undefined,
+          },
+          create: {
+            key: parsed.key,
+            type: data.type,
+            platform: data.platform,
+            label: data.label || null,
+            balance: data.balance ?? 0,
+            totalUsedCredits: data.totalUsedCredits ?? 0,
+            activatedAt: data.activatedAt ? new Date(data.activatedAt) : null,
+            expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+            machineId: parsed.machineId || null,
+          },
+        });
       }
       return ok(data);
     }

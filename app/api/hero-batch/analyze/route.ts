@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const modelId = selectedModel?.modelId ?? provider.models[0]?.modelId ?? "";
-    console.log("[HeroBatchAnalyze] Selected model:", modelId, "| Was default:", selectedModel === defaultAnalysisModel);
+    // Model selected for hero batch analysis
 
     const result = await adapter.generateText({
       model: modelId,

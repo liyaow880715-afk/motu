@@ -54,15 +54,6 @@ export async function analyzeTemplate(
 ): Promise<{ structure: TemplateStructure; rawText: string }> {
   const { adapter, provider } = await getProviderAdapter("text");
 
-  // Debug log: print all models and their capabilities
-  console.log("[TemplateAnalyze] Provider:", provider.name, "| Models count:", provider.models.length);
-  provider.models.forEach((m) => {
-    console.log("  -", m.modelId, "| capabilities:", JSON.stringify(m.capabilities), "| isDefaultAnalysis:", (m as any).isDefaultAnalysis);
-  });
-
-  // Priority 1: use default analysis model if it supports vision (for image analysis)
-  // Priority 2: find any model with vision capability
-  // Priority 3: fallback to first available model
   const defaultAnalysisModel = provider.models.find((m) => (m as any).isDefaultAnalysis);
   const hasVision = (m: typeof provider.models[0]) => {
     const caps = m.capabilities as Record<string, unknown>;
@@ -72,20 +63,16 @@ export async function analyzeTemplate(
   let selectedModel: typeof provider.models[0] | undefined;
 
   if (imageUrls?.length) {
-    // For image analysis: prefer default analysis model if it supports vision
     if (defaultAnalysisModel && hasVision(defaultAnalysisModel)) {
       selectedModel = defaultAnalysisModel;
     } else {
-      // Otherwise find first vision-capable model
       selectedModel = provider.models.find(hasVision);
     }
   } else {
-    // For text-only analysis: prefer default analysis model
     selectedModel = defaultAnalysisModel ?? provider.models[0];
   }
 
   const modelId = selectedModel?.modelId ?? provider.models[0]?.modelId ?? "";
-  console.log("[TemplateAnalyze] Selected model:", modelId, "| Has images:", Boolean(imageUrls?.length), "| Was default:", selectedModel === defaultAnalysisModel);
 
   const userPrompt = imageUrls?.length
     ? `请分析这张电商详情页长图，拆解它的模块结构和视觉风格。${description ? "\n用户补充描述：\n" + description : ""}`
