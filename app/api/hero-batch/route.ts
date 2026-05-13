@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getProviderAdapter } from "@/lib/services/provider-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { env } from "@/lib/utils/env";
 import { handleRouteError, ok } from "@/lib/utils/route";
 import { writeFileSync, existsSync, mkdirSync } from "fs";
@@ -16,7 +18,13 @@ const heroBatchSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   try {
+    if (!accessKey) {
+      return ok({ error: "缺少访问密钥" });
+    }
+    await checkAndDeductCredits(accessKey);
+
     const parsed = heroBatchSchema.parse(await request.json());
     const { provider, adapter } = await getProviderAdapter("image");
 
@@ -93,6 +101,7 @@ export async function POST(request: NextRequest) {
 
     return ok({ imageUrl, model });
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     return handleRouteError(error);
   }
 }
