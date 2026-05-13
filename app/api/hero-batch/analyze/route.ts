@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getProviderAdapter } from "@/lib/services/provider-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 
 const analyzeSchema = z.object({
@@ -26,8 +28,15 @@ const ANALYSIS_PROMPT = `你是一个电商商品分析专家。请分析这张�
 3. 文案要适合中国消费者，用词有吸引力`;
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   try {
+    if (!accessKey) {
+      return ok({ error: "缺少访问密钥" });
+    }
+
     const parsed = analyzeSchema.parse(await request.json());
+    await checkAndDeductCredits(accessKey);
+
     const { provider, adapter } = await getProviderAdapter("text");
 
     // Priority: default analysis model if it supports vision, else first vision-capable model
@@ -79,6 +88,7 @@ export async function POST(request: NextRequest) {
       usageScenarios: Array.isArray(parsedResult.usageScenarios) ? parsedResult.usageScenarios.map(String) : [],
     });
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     return handleRouteError(error);
   }
 }

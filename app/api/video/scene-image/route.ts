@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getProviderAdapter } from "@/lib/services/provider-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 
 const sceneImageSchema = z.object({
@@ -11,8 +13,14 @@ const sceneImageSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   try {
+    if (!accessKey) {
+      return ok({ error: "缺少访问密钥" });
+    }
+
     const body = sceneImageSchema.parse(await request.json());
+    await checkAndDeductCredits(accessKey);
 
     const ctx = await getProviderAdapter("image");
     const defaultModel =
@@ -41,6 +49,7 @@ export async function POST(request: NextRequest) {
       revisedPrompt: result.revisedPrompt,
     });
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     return handleRouteError(error);
   }
 }

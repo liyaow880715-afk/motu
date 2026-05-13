@@ -5,6 +5,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getVideoProviderConfig } from "@/lib/services/video-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 
 const MPT_BASE_URL = process.env.MPT_BASE_URL || "http://localhost:8080";
@@ -37,9 +39,14 @@ function saveBase64ToTemp(base64: string, index: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   let tempPaths: string[] = [];
-
   try {
+    if (!accessKey) {
+      return ok({ error: "缺少访问密钥" });
+    }
+    await checkAndDeductCredits(accessKey);
+
     const body = synthesizeSchema.parse(await request.json());
 
     // Build ordered image list: hook (index 0) -> scenes (index 1..n) -> cta (last)
@@ -102,6 +109,7 @@ export async function POST(request: NextRequest) {
 
     return ok({ taskId: payload.data.task_id });
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     return handleRouteError(error);
   } finally {
     for (const p of tempPaths) {
