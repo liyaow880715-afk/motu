@@ -34,6 +34,8 @@ async function localConsume(key: string, machineId?: string | null) {
       key: accessKey.key,
       type: accessKey.type,
       usedCount: accessKey.usedCount,
+      balance: accessKey.balance,
+      totalUsedCredits: accessKey.totalUsedCredits,
       activatedAt: accessKey.activatedAt?.toISOString() ?? null,
       expiresAt: accessKey.expiresAt?.toISOString() ?? null,
     });
@@ -53,6 +55,8 @@ async function localConsume(key: string, machineId?: string | null) {
     key: updated.key,
     type: updated.type,
     usedCount: updated.usedCount,
+    balance: updated.balance,
+    totalUsedCredits: updated.totalUsedCredits,
     activatedAt: updated.activatedAt?.toISOString() ?? null,
     expiresAt: updated.expiresAt?.toISOString() ?? null,
   });
