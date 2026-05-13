@@ -25,6 +25,7 @@ export async function GET(
     return new Response(buffer, {
       headers: {
         "Content-Type": String(contentType),
+        "Cache-Control": "public, max-age=86400, immutable",
       },
     });
   } catch (error) {
