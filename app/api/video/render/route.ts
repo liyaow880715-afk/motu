@@ -4,10 +4,19 @@ import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
+
 const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   try {
+    if (!accessKey) {
+      return Response.json({ success: false, error: { message: "缺少访问密钥" } }, { status: 401 });
+    }
+    await checkAndDeductCredits(accessKey);
+
     const { compositionId = "TutorialVideo" } = await request.json().catch(() => ({}));
     const outputDir = path.join(process.cwd(), "public", "videos");
     const outputPath = path.join(outputDir, `${compositionId.toLowerCase()}.mp4`);
@@ -55,6 +64,7 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     const message = error instanceof Error ? error.message : "渲染失败";
     return Response.json(
       { success: false, error: { message } },
