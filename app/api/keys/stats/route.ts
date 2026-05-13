@@ -45,12 +45,14 @@ export async function GET(request: NextRequest) {
     const perUseUsed = await prisma.accessKey.count({
       where: { type: "PER_USE", usedCount: { gte: 1 } },
     });
+    const totalBalance = await prisma.accessKey.aggregate({ _sum: { balance: true } });
 
     return ok({
       total,
       activated,
       expired,
       perUseUsed,
+      totalBalance: totalBalance._sum.balance ?? 0,
     });
   } catch (error) {
     return handleRouteError(error);
