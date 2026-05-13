@@ -88,6 +88,14 @@ export async function remoteCreateKeys(
   });
 }
 
+export async function remoteUpdateKey(adminSecret: string, id: string, params: { balance?: number; label?: string }): Promise<ApiResponse<{ id: string; key: string; balance: number; totalUsedCredits: number }>> {
+  return fetchRemote<{ id: string; key: string; balance: number; totalUsedCredits: number }>(`/api/keys/${id}`, {
+    method: "PATCH",
+    headers: { "x-admin-secret": adminSecret },
+    body: JSON.stringify(params),
+  });
+}
+
 export async function remoteDeleteKey(adminSecret: string, id: string): Promise<ApiResponse<{ deleted: boolean }>> {
   return fetchRemote<{ deleted: boolean }>(`/api/keys/${id}`, {
     method: "DELETE",

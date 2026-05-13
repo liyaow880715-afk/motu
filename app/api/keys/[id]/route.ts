@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { env } from "@/lib/utils/env";
 import { handleRouteError, ok, fail } from "@/lib/utils/route";
-import { remoteDeleteKey } from "@/lib/services/remote-auth";
+import { remoteDeleteKey, remoteUpdateKey } from "@/lib/services/remote-auth";
 
 const patchSchema = z.object({
   balance: z.number().int().optional(),
@@ -63,6 +63,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const parsed = patchSchema.parse(await request.json());
 
+    // If remote auth server is configured, forward the request
+    if (env.AUTH_SERVER_URL) {
+      const adminSecret = request.headers.get("x-admin-secret")!;
+      const remoteRes = await remoteUpdateKey(adminSecret, id, parsed);
+      if (!remoteRes.success) {
+        return fail(
+          remoteRes.error!.code,
+          remoteRes.error!.message,
+          null,
+          remoteRes.error!.status || 500
+        );
+      }
+      return ok(remoteRes.data);
+    }
+
+    // Otherwise use local database
     const existing = await prisma.accessKey.findUnique({ where: { id } });
     if (!existing) {
       return fail("NOT_FOUND", "Key 不存在", null, 404);
@@ -71,7 +87,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const updated = await prisma.accessKey.update({
       where: { id },
       data: {
-        ...(parsed.balance !== undefined ? { balance: parsed.balance } : {}),
+        ...(parsed.balance !== undefined ? { balance: { increment: parsed.balance } } : {}),
         ...(parsed.label !== undefined ? { label: parsed.label } : {}),
       },
     });
