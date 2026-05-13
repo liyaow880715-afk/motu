@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
+import { getCreditCost } from "@/lib/services/config-service";
 
-const COST_PER_CALL = 20;
-
-export function getCallCost(): number {
-  return COST_PER_CALL;
+export async function getCallCost(): Promise<number> {
+  return getCreditCost();
 }
 
-export async function checkAndDeductCredits(accessKey: string, amount = COST_PER_CALL) {
+export async function checkAndDeductCredits(accessKey: string, amount?: number) {
+  const cost = amount ?? (await getCreditCost());
+
   const key = await prisma.accessKey.findUnique({
     where: { key: accessKey },
   });
@@ -15,22 +16,24 @@ export async function checkAndDeductCredits(accessKey: string, amount = COST_PER
     throw new Error("激活码不存在");
   }
 
-  if (key.balance < amount) {
-    throw new Error(`积分不足，当前余额 ${key.balance}，需要 ${amount}`);
+  if (key.balance < cost) {
+    throw new Error(`积分不足，当前余额 ${key.balance}，需要 ${cost}`);
   }
 
   await prisma.accessKey.update({
     where: { id: key.id },
     data: {
-      balance: { decrement: amount },
-      totalUsedCredits: { increment: amount },
+      balance: { decrement: cost },
+      totalUsedCredits: { increment: cost },
     },
   });
 
-  return key.balance - amount;
+  return key.balance - cost;
 }
 
-export async function refundCredits(accessKey: string, amount = COST_PER_CALL) {
+export async function refundCredits(accessKey: string, amount?: number) {
+  const cost = amount ?? (await getCreditCost());
+
   const key = await prisma.accessKey.findUnique({
     where: { key: accessKey },
   });
@@ -42,9 +45,9 @@ export async function refundCredits(accessKey: string, amount = COST_PER_CALL) {
   await prisma.accessKey.update({
     where: { id: key.id },
     data: {
-      balance: { increment: amount },
+      balance: { increment: cost },
       totalUsedCredits: {
-        set: Math.max(0, key.totalUsedCredits - amount),
+        set: Math.max(0, key.totalUsedCredits - cost),
       },
     },
   });

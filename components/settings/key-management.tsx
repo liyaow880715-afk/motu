@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Copy, Loader2, Plus, Trash2, RefreshCw, ShieldCheck, Lock, KeyRound, Activity, Clock, Zap } from "lucide-react";
+import { Copy, Loader2, Plus, Trash2, RefreshCw, ShieldCheck, Lock, KeyRound, Activity, Clock, Zap, Coins, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ interface AccessKeyItem {
   platform: "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH";
   label: string | null;
   usedCount: number;
+  balance: number;
+  totalUsedCredits: number;
   activatedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
@@ -46,6 +48,13 @@ export function KeyManagement() {
   const [newLabel, setNewLabel] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [creditCost, setCreditCost] = useState(20);
+  const [creditCostLoading, setCreditCostLoading] = useState(false);
+  const [creditCostSaving, setCreditCostSaving] = useState(false);
+
+  const [rechargeMap, setRechargeMap] = useState<Record<string, string>>({});
+  const [rechargingId, setRechargingId] = useState<string | null>(null);
 
   const fetchKeys = useCallback(async () => {
     if (!isAdmin) return;
@@ -85,12 +94,31 @@ export function KeyManagement() {
     }
   }, [isAdmin, adminSecret]);
 
+  const fetchCreditCost = useCallback(async () => {
+    if (!isAdmin) return;
+    setCreditCostLoading(true);
+    try {
+      const res = await fetch("/api/admin/config", {
+        headers: { "x-admin-secret": adminSecret },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCreditCost(data.data.creditCostPerCall);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCreditCostLoading(false);
+    }
+  }, [isAdmin, adminSecret]);
+
   useEffect(() => {
     if (isAdmin) {
       fetchKeys();
       fetchStats();
+      fetchCreditCost();
     }
-  }, [isAdmin, fetchKeys, fetchStats]);
+  }, [isAdmin, fetchKeys, fetchStats, fetchCreditCost]);
 
   const handleAdminVerify = async () => {
     const secret = adminSecret.trim();
@@ -180,6 +208,64 @@ export function KeyManagement() {
   const handleCopy = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success("已复制到剪贴板");
+  };
+
+  const handleSaveCreditCost = async () => {
+    setCreditCostSaving(true);
+    try {
+      const res = await fetch("/api/admin/config", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-secret": adminSecret,
+        },
+        body: JSON.stringify({ creditCostPerCall: creditCost }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCreditCost(data.data.creditCostPerCall);
+        toast.success("扣费标准已更新");
+      } else {
+        throw new Error(data.error?.message);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新失败");
+    } finally {
+      setCreditCostSaving(false);
+    }
+  };
+
+  const handleRecharge = async (id: string) => {
+    const amount = parseInt(rechargeMap[id] || "0", 10);
+    if (!amount || amount <= 0) {
+      toast.error("请输入有效的充值金额");
+      return;
+    }
+    const key = keys.find((k) => k.id === id);
+    const newBalance = (key?.balance ?? 0) + amount;
+    setRechargingId(id);
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-secret": adminSecret,
+        },
+        body: JSON.stringify({ balance: newBalance }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`充值成功，余额 ${data.data.balance}`);
+        setRechargeMap((prev) => ({ ...prev, [id]: "" }));
+        fetchKeys();
+      } else {
+        throw new Error(data.error?.message);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "充值失败");
+    } finally {
+      setRechargingId(null);
+    }
   };
 
   const typeBadge = (type: string) => {
@@ -314,6 +400,31 @@ export function KeyManagement() {
 
       <Card>
         <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Settings2 className="h-4 w-4 text-slate-400" />
+            <h3 className="text-sm font-medium">积分扣费标准</h3>
+          </div>
+          <div className="flex items-end gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">每次 AI 调用扣减积分</Label>
+              <Input
+                type="number"
+                min={1}
+                value={creditCost}
+                onChange={(e) => setCreditCost(Number(e.target.value))}
+                className="h-10 w-32"
+                disabled={creditCostLoading}
+              />
+            </div>
+            <Button onClick={handleSaveCreditCost} disabled={creditCostSaving} className="h-10">
+              {creditCostSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "保存"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6 space-y-4">
           <h3 className="text-sm font-medium">生成新激活码</h3>
           <div className="grid gap-4 md:grid-cols-5">
             <div className="space-y-2">
@@ -411,9 +522,30 @@ export function KeyManagement() {
                         <>创建于 {new Date(k.createdAt).toLocaleString("zh-CN")} · 未激活</>
                       )}
                       {k.type === "PER_USE" && <> · 已使用 {k.usedCount} 次</>}
+                      <> · 积分 {(k.balance ?? 0).toLocaleString()} · 累计消耗 {(k.totalUsedCredits ?? 0).toLocaleString()}</>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-4">
+                  <div className="flex items-center gap-2 shrink-0 ml-4">
+                    <div className="flex items-center gap-1">
+                      <Coins className="h-3.5 w-3.5 text-amber-500" />
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="充值"
+                        className="h-7 w-20 text-xs"
+                        value={rechargeMap[k.id] ?? ""}
+                        onChange={(e) => setRechargeMap((prev) => ({ ...prev, [k.id]: e.target.value }))}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => handleRecharge(k.id)}
+                        disabled={rechargingId === k.id}
+                      >
+                        {rechargingId === k.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "充值"}
+                      </Button>
+                    </div>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleCopy(k.key)}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
