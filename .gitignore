@@ -65,6 +65,13 @@ next-env.d.ts
 # local data
 /storage/
 /prisma/dev.db
+/prisma/dev.db.backup
+*.db.backup
+
+# temporary analysis files
+jobs.json
+runs.json
+v*.json
 
 # auth-server
 /auth-server/node_modules
