@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export function FetchInterceptor() {
   useEffect(() => {
@@ -14,7 +15,19 @@ export function FetchInterceptor() {
         if (key) {
           const headers = new Headers(init?.headers);
           headers.set("x-access-key", key);
-          return originalFetch(input, { ...init, headers });
+          const response = await originalFetch(input, { ...init, headers });
+
+          // Global error handling for credit-related responses
+          if (response.status === 402) {
+            try {
+              const data = await response.clone().json();
+              toast.error(data.error?.message || "积分不足，请联系管理员充值");
+            } catch {
+              toast.error("积分不足，请联系管理员充值");
+            }
+          }
+
+          return response;
         }
       }
 
