@@ -65,6 +65,10 @@ export function handleRouteError(error: unknown) {
       return fail("NOT_FOUND", error.message, null, 404);
     }
 
+    if (/积分不足|insufficient balance|balance insufficient/i.test(error.message)) {
+      return fail("INSUFFICIENT_CREDITS", error.message, null, 402);
+    }
+
     return fail("INTERNAL_ERROR", error.message, null, 500);
   }
 
