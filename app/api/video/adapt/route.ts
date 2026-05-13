@@ -5,6 +5,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getVideoProviderConfig } from "@/lib/services/video-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 
 const MPT_BASE_URL = process.env.MPT_BASE_URL || "http://localhost:8080";
@@ -32,9 +34,14 @@ function saveBase64ToTemp(base64: string, index: number): string {
 }
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   let tempPaths: string[] = [];
-
   try {
+    if (!accessKey) {
+      return ok({ error: "缺少访问密钥" });
+    }
+    await checkAndDeductCredits(accessKey);
+
     const body = adaptSchema.parse(await request.json());
 
     tempPaths = body.productImages.map((b64, i) => saveBase64ToTemp(b64, i));
@@ -68,6 +75,7 @@ export async function POST(request: NextRequest) {
 
     return ok({ storyboard: payload.data.storyboard });
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     return handleRouteError(error);
   } finally {
     for (const p of tempPaths) {

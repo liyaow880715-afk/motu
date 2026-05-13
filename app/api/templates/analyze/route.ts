@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { analyzeTemplate } from "@/lib/services/template-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 import { writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -12,7 +14,13 @@ const analyzeSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const accessKey = getAccessKeyFromHeader(request);
   try {
+    if (!accessKey) {
+      return ok({ error: "缺少访问密钥" });
+    }
+    await checkAndDeductCredits(accessKey);
+
     const contentType = request.headers.get("content-type") ?? "";
 
     // Handle multipart form data (file upload)
@@ -77,6 +85,7 @@ export async function POST(request: NextRequest) {
     const { structure, rawText } = await analyzeTemplate(parsed.description);
     return ok({ structure, rawText });
   } catch (error) {
+    if (accessKey) await refundCredits(accessKey);
     return handleRouteError(error);
   }
 }
