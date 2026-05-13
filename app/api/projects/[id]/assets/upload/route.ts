@@ -3,7 +3,9 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { saveUploadAsset } from "@/lib/storage/asset-manager";
-import { handleRouteError, ok } from "@/lib/utils/route";
+import { handleRouteError, ok, fail } from "@/lib/utils/route";
+
+const MAX_BASE64_SIZE = 20 * 1024 * 1024; // 20MB raw limit
 
 const uploadAssetSchema = z.object({
   type: z.enum(["MAIN", "ANGLE", "DETAIL", "REFERENCE", "PACKAGING", "NUTRITION", "INGREDIENT"]),
@@ -15,6 +17,11 @@ const uploadAssetSchema = z.object({
 export async function POST(request: NextRequest, context: { params: { id: string } }) {
   try {
     const input = uploadAssetSchema.parse(await request.json());
+    const buffer = Buffer.from(input.base64Data, "base64");
+    if (buffer.byteLength > MAX_BASE64_SIZE) {
+      return fail("FILE_TOO_LARGE", `文件大小超过限制 (${(MAX_BASE64_SIZE / 1024 / 1024).toFixed(0)}MB)`, null, 413);
+    }
+
     const existingCount = await prisma.productAsset.count({
       where: { projectId: context.params.id },
     });
@@ -24,7 +31,7 @@ export async function POST(request: NextRequest, context: { params: { id: string
       type: input.type,
       fileName: input.fileName,
       mimeType: input.mimeType,
-      fileBuffer: Buffer.from(input.base64Data, "base64"),
+      fileBuffer: buffer,
       sortOrder: existingCount,
       isMain: input.type === "MAIN",
     });
