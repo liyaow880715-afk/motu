@@ -209,7 +209,7 @@
             <div class="stat-card"><div class="stat-icon" style="background:rgba(148,163,184,0.1)">🔑</div><div><div class="stat-value">-</div><div class="stat-label">总激活码</div></div></div>
             <div class="stat-card"><div class="stat-icon" style="background:rgba(52,211,153,0.1)">✅</div><div><div class="stat-value">-</div><div class="stat-label">已激活</div></div></div>
             <div class="stat-card"><div class="stat-icon" style="background:rgba(248,113,113,0.1)">⏰</div><div><div class="stat-value">-</div><div class="stat-label">已过期</div></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:rgba(251,191,36,0.1)">⚡</div><div><div class="stat-value">-</div><div class="stat-label">次卡已用</div></div></div>
+            <div class="stat-card"><div class="stat-icon" style="background:rgba(167,139,250,0.1)">💎</div><div><div class="stat-value">-</div><div class="stat-label">总积分余额</div></div></div>
           </div>
 
           <div class="panel">
@@ -275,7 +275,7 @@
         <div class="stat-card"><div class="stat-icon" style="background:rgba(148,163,184,0.1)">🔑</div><div><div class="stat-value">${s.total}</div><div class="stat-label">总激活码</div></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:rgba(52,211,153,0.1)">✅</div><div><div class="stat-value">${s.activated}</div><div class="stat-label">已激活</div></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:rgba(248,113,113,0.1)">⏰</div><div><div class="stat-value">${s.expired}</div><div class="stat-label">已过期</div></div></div>
-        <div class="stat-card"><div class="stat-icon" style="background:rgba(251,191,36,0.1)">⚡</div><div><div class="stat-value">${s.perUseUsed}</div><div class="stat-label">次卡已用</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(167,139,250,0.1)">💎</div><div><div class="stat-value">${s.totalBalance ?? 0}</div><div class="stat-label">总积分余额</div></div></div>
       `;
     }
 
@@ -326,10 +326,20 @@
             </div>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">${timeInfo}${k.type === 'PER_USE' ? ' · 已使用 ' + k.usedCount + ' 次' : ''}${k.machineId ? ' · 已绑定设备' : ''}</div>
           </td>
+          <td style="white-space:nowrap;text-align:center">
+            <div style="font-size:14px;font-weight:600;color:var(--primary)">${k.balance ?? 0}</div>
+            <div style="font-size:11px;color:var(--muted)">积分</div>
+          </td>
+          <td style="white-space:nowrap">
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="recharge-${k.id}" min="1" value="100" style="width:70px;padding:4px 8px;font-size:13px;border-radius:6px" onkeydown="if(event.key==='Enter')rechargeKey('${k.id}')">
+              <button class="btn-sm" onclick="rechargeKey('${k.id}')" style="padding:6px 12px">充值</button>
+            </div>
+          </td>
           <td style="width:1px;white-space:nowrap">
             <div class="actions">
               <button class="btn-sm btn-ghost" onclick="copyKey('${k.key}')">复制</button>
-              ${k.machineId ? `<button class="btn-sm btn-warning" onclick="unbindKey('${k.id}')">解绑</button>` : ''}
+              ${k.machineId ? `<button class="btn-sm btn-ghost" style="color:var(--warning);border-color:rgba(251,191,36,0.3)" onclick="unbindKey('${k.id}')">解绑</button>` : ''}
               <button class="btn-sm btn-danger" onclick="deleteKey('${k.id}')">删除</button>
             </div>
           </td>
@@ -338,7 +348,7 @@
 
       el('listArea').innerHTML = `
         <table>
-          <thead><tr><th>激活码</th><th style="width:1px"></th></tr></thead>
+          <thead><tr><th>激活码</th><th style="text-align:center">积分余额</th><th>充值</th><th style="width:1px"></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       `;
@@ -405,10 +415,30 @@
       document.body.removeChild(ta);
     }
 
+    async function rechargeKey(id) {
+      const input = el('recharge-' + id);
+      const amount = parseInt(input.value, 10);
+      if (!amount || amount <= 0) { showToast('请输入有效的充值金额', 'error'); return; }
+      const btn = input.nextElementSibling;
+      btn.disabled = true;
+      const data = await api(`/api/keys/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ balance: amount }),
+      });
+      btn.disabled = false;
+      if (data.success) {
+        showToast(`成功充值 ${amount} 积分，当前余额 ${data.data.balance}`);
+        loadKeys();
+        loadStats();
+      } else {
+        showToast(data.error?.message || '充值失败', 'error');
+      }
+    }
+
     function exportKeys() {
       const keys = window.__currentKeys || [];
       if (keys.length === 0) { showToast('没有可导出的激活码', 'error'); return; }
-      const header = '激活码,类型,适用平台,状态,备注,创建时间,激活时间,过期时间,已使用次数\n';
+      const header = '激活码,类型,适用平台,状态,备注,创建时间,激活时间,过期时间,已使用次数,积分余额,已消耗积分\n';
       const rows = keys.map(k => {
         const status = k.expiresAt && new Date() > new Date(k.expiresAt) ? '已过期' :
                        k.type === 'PER_USE' && k.usedCount >= 1 ? '已用完' :
@@ -422,7 +452,9 @@
           k.createdAt ? new Date(k.createdAt).toLocaleString('zh-CN') : '',
           k.activatedAt ? new Date(k.activatedAt).toLocaleString('zh-CN') : '',
           k.expiresAt ? new Date(k.expiresAt).toLocaleString('zh-CN') : '',
-          k.usedCount
+          k.usedCount,
+          k.balance ?? 0,
+          k.totalUsedCredits ?? 0
         ].join(',');
       }).join('\n');
       const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });

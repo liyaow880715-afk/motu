@@ -42,6 +42,8 @@ router.get("/keys", async (req, res) => {
         platform: k.platform,
         label: k.label,
         usedCount: k.usedCount,
+        balance: k.balance,
+        totalUsedCredits: k.totalUsedCredits,
         activatedAt: k.activatedAt?.toISOString() ?? null,
         expiresAt: k.expiresAt?.toISOString() ?? null,
         machineId: k.machineId,
@@ -115,6 +117,49 @@ router.delete("/keys/:id", async (req, res) => {
   }
 });
 
+// PATCH /api/keys/:id — 更新余额等字段
+router.patch("/keys/:id", async (req, res) => {
+  try {
+    if (!checkAdmin(req)) {
+      return res.status(403).json(fail("UNAUTHORIZED", "管理员密码错误", 403));
+    }
+
+    const schema = z.object({
+      balance: z.number().int().optional(),
+      label: z.string().optional(),
+    });
+    const parsed = schema.parse(req.body);
+    const { id } = req.params;
+
+    const key = await prisma.accessKey.findUnique({ where: { id } });
+    if (!key) {
+      return res.status(404).json(fail("NOT_FOUND", "激活码不存在", 404));
+    }
+
+    const data: any = {};
+    if (parsed.balance !== undefined) {
+      data.balance = key.balance + parsed.balance;
+    }
+    if (parsed.label !== undefined) {
+      data.label = parsed.label;
+    }
+
+    const updated = await prisma.accessKey.update({ where: { id }, data });
+
+    return res.json(ok({
+      id: updated.id,
+      key: updated.key,
+      balance: updated.balance,
+      totalUsedCredits: updated.totalUsedCredits,
+    }));
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(fail("VALIDATION_ERROR", error.issues[0]?.message || "参数错误", 400));
+    }
+    return res.status(500).json(fail("INTERNAL_ERROR", error.message || "服务器内部错误", 500));
+  }
+});
+
 // POST /api/keys/:id/unbind
 router.post("/keys/:id/unbind", async (req, res) => {
   try {
@@ -153,11 +198,14 @@ router.get("/stats", async (req, res) => {
       where: { type: "PER_USE", usedCount: { gte: 1 } },
     });
 
+    const totalBalance = await prisma.accessKey.aggregate({ _sum: { balance: true } });
+
     return res.json(ok({
       total,
       activated,
       expired,
       perUseUsed,
+      totalBalance: totalBalance._sum.balance ?? 0,
     }));
   } catch (error: any) {
     return res.status(500).json(fail("INTERNAL_ERROR", error.message || "服务器内部错误", 500));
