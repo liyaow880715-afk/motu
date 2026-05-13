@@ -104,14 +104,16 @@ export async function listProjects(_accessKeyId?: string | null) {
         orderBy: { sortOrder: "asc" },
         take: 1,
       },
-      sections: true,
+      _count: {
+        select: { sections: true },
+      },
     },
   });
 
   return projects.map((project) => ({
     ...project,
     coverImageUrl: assetPublicUrl(project.assets[0]),
-    sectionCount: project.sections.length,
+    sectionCount: project._count.sections,
   }));
 }
 
