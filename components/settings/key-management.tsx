@@ -40,6 +40,7 @@ export function KeyManagement() {
     activated: 0,
     expired: 0,
     perUseUsed: 0,
+    totalBalance: 0,
   });
   const [statsLoading, setStatsLoading] = useState(false);
   const [newType, setNewType] = useState<"PER_USE" | "DAILY" | "MONTHLY">("PER_USE");
@@ -393,6 +394,17 @@ export function KeyManagement() {
             <div>
               <div className="text-xl font-semibold">{statsLoading ? "-" : stats.perUseUsed}</div>
               <div className="text-[11px] text-muted-foreground">次卡已用</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10">
+              <Coins className="h-5 w-5 text-violet-400" />
+            </div>
+            <div>
+              <div className="text-xl font-semibold">{statsLoading ? "-" : stats.totalBalance}</div>
+              <div className="text-[11px] text-muted-foreground">总积分余额</div>
             </div>
           </CardContent>
         </Card>
