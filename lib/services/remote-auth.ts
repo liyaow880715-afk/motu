@@ -20,6 +20,7 @@ export interface KeyInfo {
   platform: "DESKTOP_ONLY" | "WEB_ONLY" | "BOTH";
   label: string | null;
   usedCount: number;
+  balance: number;
   activatedAt: string | null;
   expiresAt: string | null;
 }

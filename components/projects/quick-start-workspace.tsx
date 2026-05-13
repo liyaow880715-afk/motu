@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { fileToBase64Payload } from "@/lib/utils/base64-upload";
 import { useAuthStore } from "@/hooks/use-auth-store";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 
 function buildDraftProjectName() {
   const now = new Date();
@@ -123,7 +124,7 @@ export function QuickStartWorkspace() {
 
       const analyzeResponse = await fetch(`/api/projects/${projectId}/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: "{}",
       });
       const analyzePayload = await analyzeResponse.json();

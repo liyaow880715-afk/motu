@@ -12,6 +12,7 @@ export interface KeyInfo {
   platform: KeyPlatform;
   label: string | null;
   usedCount: number;
+  balance: number;
   activatedAt: string | null;
   expiresAt: string | null;
 }

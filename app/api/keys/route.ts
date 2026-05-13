@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
         platform: k.platform,
         label: k.label,
         usedCount: k.usedCount,
+        balance: k.balance,
+        totalUsedCredits: k.totalUsedCredits,
         activatedAt: k.activatedAt?.toISOString() ?? null,
         expiresAt: k.expiresAt?.toISOString() ?? null,
         createdAt: k.createdAt.toISOString(),

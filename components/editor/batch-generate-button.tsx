@@ -6,6 +6,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuthStore } from "@/hooks/use-auth-store";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Section {
@@ -59,7 +60,7 @@ export function BatchGenerateButton({ projectId, sections }: BatchGenerateButton
       try {
         const res = await fetch(`/api/projects/${projectId}/sections/${section.id}/generate`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({}),
         });
         const data = await res.json();

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 
 const bodyTypes = [
   { value: "slim", label: "纤瘦" },
@@ -81,7 +82,7 @@ export default function NewModelPage() {
       setProgress("生成正面视图...");
       const genRes = await fetch("/api/models/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           modelId,
           characterPrompt,

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { env } from "@/lib/utils/env";
 import { handleRouteError, ok, fail } from "@/lib/utils/route";
 import { remoteVerify } from "@/lib/services/remote-auth";
+import { getCreditBalance } from "@/lib/services/credit-service";
 
 const verifySchema = z.object({
   key: z.string().min(1, "请输入激活码"),
@@ -81,6 +82,7 @@ async function localVerify(key: string, machineId?: string | null, platform?: st
     platform: accessKey.platform,
     label: accessKey.label,
     usedCount: accessKey.usedCount,
+    balance: accessKey.balance,
     activatedAt: activatedAt?.toISOString() ?? null,
     expiresAt: expiresAt?.toISOString() ?? null,
   });
@@ -101,7 +103,11 @@ export async function POST(request: NextRequest) {
           remoteRes.error!.status || 500
         );
       }
-      return ok(remoteRes.data);
+      const data = remoteRes.data;
+      if (data && env.AUTH_SERVER_URL) {
+        data.balance = await getCreditBalance(parsed.key);
+      }
+      return ok(data);
     }
 
     // Otherwise use local database

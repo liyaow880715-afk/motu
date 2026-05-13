@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { generateSectionImage } from "@/lib/services/generation-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 
 const heroBatchSchema = z.object({
@@ -47,10 +49,15 @@ export async function POST(
 
     const styles = parsed.styles?.slice(0, parsed.count) ?? DEFAULT_HERO_STYLES.slice(0, parsed.count);
     const results: Array<{ index: number; style: string; success: boolean; assetId?: string; error?: string }> = [];
+    const accessKey = getAccessKeyFromHeader(request);
 
     for (let i = 0; i < styles.length; i++) {
       const style = styles[i];
       try {
+        if (accessKey) {
+          await checkAndDeductCredits(accessKey);
+        }
+
         // Update section visual prompt with current style
         await prisma.pageSection.update({
           where: { id: heroSection.id },
@@ -68,6 +75,9 @@ export async function POST(
           assetId: result.imageAsset.id,
         });
       } catch (error) {
+        if (accessKey) {
+          await refundCredits(accessKey);
+        }
         results.push({
           index: i,
           style,

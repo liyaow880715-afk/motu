@@ -287,16 +287,18 @@ model OutfitShoot {
 }
 
 model AccessKey {
-  id          String      @id @default(cuid())
-  key         String      @unique
-  label       String?
-  type        KeyType
-  platform    KeyPlatform @default(BOTH)
-  usedCount   Int         @default(0)
-  activatedAt DateTime?
-  expiresAt   DateTime?
-  machineId   String?
-  createdAt   DateTime    @default(now())
+  id               String      @id @default(cuid())
+  key              String      @unique
+  label            String?
+  type             KeyType
+  platform         KeyPlatform @default(BOTH)
+  usedCount        Int         @default(0)
+  balance          Int         @default(0)
+  totalUsedCredits Int         @default(0)
+  activatedAt      DateTime?
+  expiresAt        DateTime?
+  machineId        String?
+  createdAt        DateTime    @default(now())
 
   @@index([type])
   @@index([platform])

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { useAuthStore } from "@/hooks/use-auth-store";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 import { ModuleTreePanel } from "./module-tree-panel";
 import { PhonePreviewPanel } from "./phone-preview-panel";
 import { EditorPanel } from "./editor-panel";
@@ -142,7 +143,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
       try {
         const response = await fetch(`/api/projects/${project.id}/sections/${selectedSection.id}/${kind}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ referenceAssetIds: checkedReferences }),
         });
         const payload = await response.json();
@@ -175,7 +176,7 @@ export function EditorWorkspace({ project: initialProject }: EditorWorkspaceProp
       try {
         const response = await fetch(`/api/projects/${project.id}/sections/${selectedSection.id}/edit`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ referenceAssetIds: checkedReferences, editMode }),
         });
         const payload = await response.json();

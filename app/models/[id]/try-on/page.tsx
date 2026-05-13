@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 
 const clothingTypes = [
   { value: "dress", label: "连衣裙" },
@@ -111,7 +112,7 @@ export default function TryOnPage() {
     try {
       const res = await fetch("/api/models/try-on", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           modelTemplateId: id,
           clothingType,

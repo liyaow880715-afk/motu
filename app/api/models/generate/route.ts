@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
 import { generateModelViews } from "@/lib/services/model-service";
+import { checkAndDeductCredits, refundCredits } from "@/lib/services/credit-service";
+import { getAccessKeyFromHeader } from "@/lib/utils/auth";
 import { handleRouteError, ok } from "@/lib/utils/route";
 
 export async function POST(request: NextRequest) {
@@ -12,13 +14,26 @@ export async function POST(request: NextRequest) {
       throw new Error("modelId and characterPrompt are required");
     }
 
-    const results = await generateModelViews({
-      modelId,
-      characterPrompt,
-      seed,
-    });
+    const accessKey = getAccessKeyFromHeader(request);
 
-    return ok(results);
+    if (accessKey) {
+      await checkAndDeductCredits(accessKey);
+    }
+
+    try {
+      const results = await generateModelViews({
+        modelId,
+        characterPrompt,
+        seed,
+      });
+
+      return ok(results);
+    } catch (error) {
+      if (accessKey) {
+        await refundCredits(accessKey);
+      }
+      throw error;
+    }
   } catch (error) {
     return handleRouteError(error);
   }

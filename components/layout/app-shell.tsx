@@ -99,6 +99,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <KeyTypeBadge type={keyInfo.type} />
+                    <span className="text-[10px] text-slate-400">
+                      积分 {keyInfo.balance ?? 0}
+                    </span>
                   </div>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleLogout} title="登出">
                     <LogOut className="h-3.5 w-3.5 text-slate-400" />
@@ -163,6 +166,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           : `已过期 ${new Date(keyInfo.expiresAt).toLocaleDateString("zh-CN")}`}
                       </span>
                     ) : null}
+                    <span className="text-[10px] font-medium text-amber-500">
+                      积分 {keyInfo.balance ?? 0}
+                    </span>
                   </div>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleLogout} title="登出">
                     <LogOut className="h-3.5 w-3.5 text-slate-400" />

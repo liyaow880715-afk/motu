@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fileToBase64Payload } from "@/lib/utils/base64-upload";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 import { assetTypeLabels, platformLabels, platformOptions, styleLabels, styleOptions } from "@/types/domain";
 
 interface AnalysisWorkspaceProps {
@@ -115,7 +116,7 @@ export function AnalysisWorkspace({
     try {
       const response = await fetch(`/api/projects/${project.id}/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: "{}",
       });
       const payload = await response.json();

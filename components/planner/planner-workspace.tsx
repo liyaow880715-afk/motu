@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 import { contentLanguageLabels, type ContentLanguage } from "@/lib/utils/content-language";
 import { sectionTypeLabels } from "@/types/domain";
 
@@ -332,7 +333,7 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
     try {
       const response = await fetch(`/api/projects/${project.id}/plan-sections`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({}),
       });
 
@@ -544,7 +545,7 @@ export function PlannerWorkspace({ project }: PlannerWorkspaceProps) {
       const endpoint = section.imageUrl ? "regenerate" : "generate";
       const response = await fetch(`/api/projects/${project.id}/sections/${section.id}/${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({}),
       });
       const payload = await response.json();

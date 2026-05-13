@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { getAuthHeaders } from "@/lib/utils/auth-client";
 
 const PRESET_STYLES = [
   { id: "white", label: "白底简约", desc: "高端简约白底图，产品居中，柔和影棚光" },
@@ -55,7 +56,7 @@ export function HeroBatchGenerator({ projectId }: HeroBatchGeneratorProps) {
     try {
       const res = await fetch(`/api/projects/${projectId}/hero-batch`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ count: styles.length, styles }),
       });
       const data = await res.json();
