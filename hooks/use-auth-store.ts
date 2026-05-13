@@ -13,6 +13,7 @@ export interface KeyInfo {
   label: string | null;
   usedCount: number;
   balance: number;
+  totalUsedCredits: number;
   activatedAt: string | null;
   expiresAt: string | null;
 }
